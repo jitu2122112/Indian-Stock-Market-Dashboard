@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start Here - Indian Stock Market Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 60px;
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+            animation: fadeIn 0.6s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 36px;
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-weight: 800;
+        }
+        
+        .subtitle {
+            font-size: 18px;
+            color: #64748b;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+            text-align: left;
+        }
+        
+        .feature {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+        
+        .feature-icon {
+            font-size: 28px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            flex-shrink: 0;
+        }
+        
+        .feature-content h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        
+        .feature-content p {
+            font-size: 14px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 16px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .steps {
+            margin-top: 40px;
+            padding-top: 40px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .steps h2 {
+            font-size: 24px;
+            color: #1e293b;
+            margin-bottom: 24px;
+            font-weight: 700;
+        }
+        
+        .step-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            text-align: left;
+        }
+        
+        .step {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+        
+        .step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            font-size: 14px;
+            color: #1e293b;
+            line-height: 1.5;
+        }
+        
+        .note {
+            margin-top: 40px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .note p {
+            font-size: 14px;
+            color: #475569;
+            line-height: 1.6;
+        }
+        
+        .note strong {
+            color: #1e293b;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🇮🇳</div>
+        <h1>Indian Stock Market Live Dashboard</h1>
+        <p class="subtitle">Complete Trading Platform for Beginners with Live Data, Intraday Signals, and Expert Guidance</p>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <div class="feature-content">
+                    <h3>Live Market Data</h3>
+                    <p>NIFTY 50, SENSEX, NIFTY Bank with real-time updates</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🎯</div>
+                <div class="feature-content">
+                    <h3>Intraday Signals</h3>
+                    <p>Buy/Sell signals with entry, target, stop loss</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔍</div>
+                <div class="feature-content">
+                    <h3>Stock Screener</h3>
+                    <p>Find stocks based on your criteria</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📈</div>
+                <div class="feature-content">
+                    <h3>Technical Analysis</h3>
+                    <p>Interactive charts with RSI, MACD, Moving Averages</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💼</div>
+                <div class="feature-content">
+                    <h3>My Watchlist</h3>
+                    <p>Track your favorite stocks with live prices</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📚</div>
+                <div class="feature-content">
+                    <h3>Learning Center</h3>
+                    <p>Complete beginner's guide with tutorials</p>
+                </div>
+            </div>
+        </div>
+        
+        <a href="index.html" class="btn">Open Dashboard →</a>
+        
+        <div class="steps">
+            <h2>🚀 Quick Start Guide</h2>
+            <div class="step-list">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">Open <strong>index.html</strong> in your browser</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">Go to <strong>Learning Center</strong> and complete tutorials</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">Check <strong>Intraday Signals</strong> for trading opportunities</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">Use <strong>Stock Screener</strong> to find stocks</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">Add stocks to <strong>My Watchlist</strong></div>
+                </div>
+                <div class="step">
+                    <div class="step-number">6</div>
+                    <div class="step-content">Start trading with <strong>proper risk management</strong></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="note">
+            <p><strong>💡 For Best Experience:</strong></p>
+            <p>Use Chrome, Firefox, or Safari browser. The dashboard works offline with mock data, or you can connect to live APIs for real market data.</p>
+        </div>
+        
+        <div class="footer">
+            <p>Need help? Check <a href="QUICK_START.md">Quick Start Guide</a> or <a href="README.md">Full Documentation</a></p>
+            <p>Made with ❤️ for Indian Stock Market Traders</p>
+        </div>
+    </div>
+    
+    <script>
+        // Auto-redirect after 5 seconds
+        setTimeout(function() {
+            window.location.href = 'index.html';
+        }, 5000);
+    </script>
+</body>
+</html>

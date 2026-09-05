@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Stock Market Live Dashboard - Beginner's Guide</title>
+    <meta name="description" content="Real-time Indian stock market dashboard with live prices, intraday trading signals, entry/exit points, stop loss, and beginner guidance">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0"></script>
+</head>
+<body>
+    <div class="app-container">
+        
+        <!-- ===== HEADER ===== -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <span class="logo-icon">🇮🇳</span>
+                    <span class="logo-text">Indian Market Live</span>
+                </div>
+                <div class="market-status" id="market-status">
+                    <span class="status-dot open"></span>
+                    <span>Market: OPEN (9:15 AM - 3:30 PM IST)</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="last-updated" id="last-updated">
+                    Last updated: Just now
+                </div>
+                <button class="btn btn-primary btn-small" onclick="refreshAllData()">
+                    <span>🔄 Refresh</span>
+                </button>
+                <div class="api-status" id="api-status">
+                    <span class="status-dot"></span>
+                    <span>Live Data</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ===== SIDEBAR ===== -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="user-info">
+                    <div class="user-avatar">👤</div>
+                    <div class="user-details">
+                        <span class="user-name">Beginner Trader</span>
+                        <span class="user-type">Learning Mode</span>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-link active" onclick="showSection('dashboard')">
+                    <span class="nav-icon">🏠</span>
+                    <span>Live Dashboard</span>
+                </a>
+                <a href="#" class="nav-link" onclick="showSection('signals')">
+                    <span class="nav-icon">🎯</span>
+                    <span>Intraday Signals</span>
+                    <span class="nav-badge" id="signals-count">0</span>
+                </a>
+                <a href="#" class="nav-link" onclick="showSection('screener')">
+                    <span class="nav-icon">🔍</span>
+                    <span>Stock Screener</span>
+                </a>
+                <a href="#" class="nav-link" onclick="showSection('analysis')">
+                    <span class="nav-icon">📊</span>
+                    <span>Technical Analysis</span>
+                </a>
+                <a href="#" class="nav-link" onclick="showSection('portfolio')">
+                    <span class="nav-icon">💼</span>
+                    <span>My Watchlist</span>
+                </a>
+                <a href="#" class="nav-link" onclick="showSection('learning')">
+                    <span class="nav-icon">📚</span>
+                    <span>Learning Center</span>
+                </a>
+                <a href="#" class="nav-link" onclick="showSection('settings')">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="showHotStocks()">
+                        <span>🔥 Hot Stocks</span>
+                    </button>
+                    <button class="quick-btn" onclick="showMarketNews()">
+                        <span>📰 Market News</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ===== MAIN CONTENT ===== -->
+        <main class="main-content">
+            
+            <!-- ===== DASHBOARD SECTION ===== -->
+            <section id="dashboard" class="section active">
+                <div class="section-header">
+                    <h1>🏠 Live Market Dashboard</h1>
+                    <p>Real-time Indian Stock Market Data - NSE & BSE</p>
+                </div>
+
+                <!-- Market Overview Cards -->
+                <div class="market-overview">
+                    <div class="market-card featured">
+                        <div class="card-header">
+                            <span class="card-icon">🇮🇳</span>
+                            <span class="card-title">NIFTY 50</span>
+                        </div>
+                        <div class="card-value" id="nifty-price">Loading...</div>
+                        <div class="card-change" id="nifty-change">-</div>
+                        <div class="card-meta">
+                            <span class="meta-item">
+                                <span class="meta-label">High:</span>
+                                <span class="meta-value" id="nifty-high">-</span>
+                            </span>
+                            <span class="meta-item">
+                                <span class="meta-label">Low:</span>
+                                <span class="meta-value" id="nifty-low">-</span>
+                            </span>
+                            <span class="meta-item">
+                                <span class="meta-label">Volume:</span>
+                                <span class="meta-value" id="nifty-volume">-</span>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="market-card">
+                        <div class="card-header">
+                            <span class="card-icon">🏢</span>
+                            <span class="card-title">SENSEX</span>
+                        </div>
+                        <div class="card-value" id="sensex-price">Loading...</div>
+                        <div class="card-change" id="sensex-change">-</div>
+                        <div class="card-meta">
+                            <span class="meta-item">
+                                <span class="meta-label">High:</span>
+                                <span class="meta-value" id="sensex-high">-</span>
+                            </span>
+                            <span class="meta-item">
+                                <span class="meta-label">Low:</span>
+                                <span class="meta-value" id="sensex-low">-</span>
+                            </span>
+                            <span class="meta-item">
+                                <span class="meta-label">Volume:</span>
+                                <span class="meta-value" id="sensex-volume">-</span>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="market-card">
+                        <div class="card-header">
+                            <span class="card-icon">📈</span>
+                            <span class="card-title">NIFTY Bank</span>
+                        </div>
+                        <div class="card-value" id="banknifty-price">Loading...</div>
+                        <div class="card-change" id="banknifty-change">-</div>
+                        <div class="card-meta">
+                            <span class="meta-item">
+                                <span class="meta-label">High:</span>
+                                <span class="meta-value" id="banknifty-high">-</span>
+                            </span>
+                            <span class="meta-item">
+                                <span class="meta-label">Low:</span>
+                                <span class="meta-value" id="banknifty-low">-</span>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="market-card">
+                        <div class="card-header">
+                            <span class="card-icon">💰</span>
+                            <span class="card-title">Market Mood</span>
+                        </div>
+                        <div class="mood-indicator" id="market-mood">
+                            <div class="mood-value">Neutral</div>
+                            <div class="mood-meter">
+                                <div class="mood-bar bearish" style="width: 30%"></div>
+                                <div class="mood-bar neutral" style="width: 40%"></div>
+                                <div class="mood-bar bullish" style="width: 30%"></div>
+                            </div>
+                            <div class="mood-labels">
+                                <span>Bearish</span>
+                                <span>Neutral</span>
+                                <span>Bullish</span>
+                            </div>
+                        </div>
+                        <div class="card-change" id="market-sentiment">Calculating...</div>
+                    </div>
+                </div>
+
+                <!-- Market Summary Stats -->
+                <div class="market-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="advances">-</span>
+                            <span class="stat-label">Advances</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📉</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="declines">-</span>
+                            <span class="stat-label">Declines</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⚖️</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="unchanged">-</span>
+                            <span class="stat-label">Unchanged</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💹</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="fii-flow">-</span>
+                            <span class="stat-label">FII Flow</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏦</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="dii-flow">-</span>
+                            <span class="stat-label">DII Flow</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="charts-grid">
+                    <div class="chart-card large">
+                        <div class="chart-header">
+                            <h3>NIFTY 50 Intraday Chart</h3>
+                            <div class="chart-controls">
+                                <button class="chart-btn active" data-timeframe="1D">1D</button>
+                                <button class="chart-btn" data-timeframe="5D">5D</button>
+                                <button class="chart-btn" data-timeframe="1M">1M</button>
+                                <button class="chart-btn" data-timeframe="3M">3M</button>
+                            </div>
+                        </div>
+                        <canvas id="niftyChart"></canvas>
+                    </div>
+                    
+                    <div class="chart-card">
+                        <h3>Sector Performance</h3>
+                        <canvas id="sectorChart"></canvas>
+                    </div>
+                    
+                    <div class="chart-card">
+                        <h3>Market Heatmap</h3>
+                        <div class="heatmap-grid" id="market-heatmap">
+                            <!-- Heatmap will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Movers -->
+                <div class="movers-grid">
+                    <div class="movers-card">
+                        <div class="card-header">
+                            <h3>📈 Top Gainers</h3>
+                            <span class="timestamp">Updated just now</span>
+                        </div>
+                        <div class="stocks-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Stock</th>
+                                        <th>Price</th>
+                                        <th>Change</th>
+                                        <th>Volume</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="gainers-table">
+                                    <tr><td colspan="4" class="loading">Loading gainers...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="movers-card">
+                        <div class="card-header">
+                            <h3>📉 Top Losers</h3>
+                            <span class="timestamp">Updated just now</span>
+                        </div>
+                        <div class="stocks-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Stock</th>
+                                        <th>Price</th>
+                                        <th>Change</th>
+                                        <th>Volume</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="losers-table">
+                                    <tr><td colspan="4" class="loading">Loading losers...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FII/DII Activity -->
+                <div class="activity-section">
+                    <h3>💰 FII & DII Activity Today</h3>
+                    <div class="activity-grid">
+                        <div class="activity-card fii">
+                            <div class="activity-header">
+                                <span class="activity-icon">🌍</span>
+                                <span class="activity-title">Foreign Institutional Investors (FII)</span>
+                            </div>
+                            <div class="activity-values">
+                                <div class="activity-value">
+                                    <span class="value" id="fii-buy">-</span>
+                                    <span class="label">Net Buy</span>
+                                </div>
+                                <div class="activity-value">
+                                    <span class="value" id="fii-sell">-</span>
+                                    <span class="label">Net Sell</span>
+                                </div>
+                                <div class="activity-value total">
+                                    <span class="value" id="fii-net">-</span>
+                                    <span class="label">Net Flow</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="activity-card dii">
+                            <div class="activity-header">
+                                <span class="activity-icon">🏛️</span>
+                                <span class="activity-title">Domestic Institutional Investors (DII)</span>
+                            </div>
+                            <div class="activity-values">
+                                <div class="activity-value">
+                                    <span class="value" id="dii-buy">-</span>
+                                    <span class="label">Net Buy</span>
+                                </div>
+                                <div class="activity-value">
+                                    <span class="value" id="dii-sell">-</span>
+                                    <span class="label">Net Sell</span>
+                                </div>
+                                <div class="activity-value total">
+                                    <span class="value" id="dii-net">-</span>
+                                    <span class="label">Net Flow</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== INTRADAY SIGNALS SECTION ===== -->
+            <section id="signals" class="section">
+                <div class="section-header">
+                    <h1>🎯 Intraday Trading Signals</h1>
+                    <p>Live Buy/Sell Signals with Entry, Target & Stop Loss - Updated Every Minute</p>
+                </div>
+
+                <!-- Signals Filter -->
+                <div class="signals-filter">
+                    <div class="filter-group">
+                        <label>Signal Type:</label>
+                        <select id="signal-type" onchange="filterSignals()">
+                            <option value="all">All Signals</option>
+                            <option value="buy">Buy Only</option>
+                            <option value="sell">Sell Only</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Risk Level:</label>
+                        <select id="signal-risk" onchange="filterSignals()">
+                            <option value="all">All</option>
+                            <option value="low">Low Risk</option>
+                            <option value="medium">Medium Risk</option>
+                            <option value="high">High Risk</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Sector:</label>
+                        <select id="signal-sector" onchange="filterSignals()">
+                            <option value="all">All Sectors</option>
+                            <option value="it">IT</option>
+                            <option value="banking">Banking & Finance</option>
+                            <option value="pharma">Pharmaceuticals</option>
+                            <option value="fmcg">FMCG</option>
+                            <option value="energy">Energy</option>
+                            <option value="auto">Automobile</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Time Frame:</label>
+                        <select id="signal-timeframe" onchange="filterSignals()">
+                            <option value="all">All</option>
+                            <option value="intraday">Intraday</option>
+                            <option value="short">Short-term (1-7 days)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Active Signals -->
+                <div class="signals-section">
+                    <h3>⚡ Active Signals (<span id="active-signals-count">0</span>)</h3>
+                    <div class="signals-grid" id="active-signals">
+                        <!-- Signals will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Signal History -->
+                <div class="signals-history">
+                    <h3>📜 Signal History</h3>
+                    <div class="signals-table-full">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Stock</th>
+                                    <th>Signal</th>
+                                    <th>Entry</th>
+                                    <th>Target</th>
+                                    <th>Stop Loss</th>
+                                    <th>Result</th>
+                                    <th>Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="signals-history-table">
+                                <tr><td colspan="8" class="loading">Loading signal history...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Signal Performance -->
+                <div class="performance-section">
+                    <h3>📊 Signal Performance</h3>
+                    <div class="performance-grid">
+                        <div class="performance-card">
+                            <div class="performance-value" id="total-signals">0</div>
+                            <div class="performance-label">Total Signals</div>
+                        </div>
+                        <div class="performance-card">
+                            <div class="performance-value success" id="winning-signals">0</div>
+                            <div class="performance-label">Winning Trades</div>
+                        </div>
+                        <div class="performance-card">
+                            <div class="performance-value danger" id="losing-signals">0</div>
+                            <div class="performance-label">Losing Trades</div>
+                        </div>
+                        <div class="performance-card">
+                            <div class="performance-value" id="win-rate">0%</div>
+                            <div class="performance-label">Win Rate</div>
+                        </div>
+                        <div class="performance-card">
+                            <div class="performance-value" id="avg-return">0%</div>
+                            <div class="performance-label">Avg Return</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== STOCK SCREENER SECTION ===== -->
+            <section id="screener" class="section">
+                <div class="section-header">
+                    <h1>🔍 Stock Screener</h1>
+                    <p>Find the Best Stocks Based on Your Criteria - Real-time Filtering</p>
+                </div>
+
+                <!-- Screener Filters -->
+                <div class="screener-filters">
+                    <div class="filter-row">
+                        <div class="filter-item">
+                            <label>Search Stock:</label>
+                            <input type="text" id="stock-search" placeholder="e.g., RELIANCE, TCS" oninput="searchStocks()">
+                        </div>
+                        <div class="filter-item">
+                            <label>Sector:</label>
+                            <select id="screener-sector" onchange="applyScreener()">
+                                <option value="all">All Sectors</option>
+                                <option value="it">IT</option>
+                                <option value="banking">Banking & Finance</option>
+                                <option value="pharma">Pharmaceuticals</option>
+                                <option value="fmcg">FMCG</option>
+                                <option value="energy">Energy</option>
+                                <option value="auto">Automobile</option>
+                                <option value="metal">Metals</option>
+                                <option value="telecom">Telecom</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Market Cap:</label>
+                            <select id="screener-marketcap" onchange="applyScreener()">
+                                <option value="all">All</option>
+                                <option value="large">Large Cap (>₹20,000 Cr)</option>
+                                <option value="mid">Mid Cap (₹5,000-20,000 Cr)</option>
+                                <option value="small">Small Cap (<₹5,000 Cr)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-row">
+                        <div class="filter-item">
+                            <label>Price Range:</label>
+                            <div class="range-inputs">
+                                <input type="number" id="min-price" placeholder="Min" value="0">
+                                <span>to</span>
+                                <input type="number" id="max-price" placeholder="Max" value="10000">
+                            </div>
+                        </div>
+                        <div class="filter-item">
+                            <label>RSI Range:</label>
+                            <div class="range-inputs">
+                                <input type="number" id="rsi-min" placeholder="Min" value="0">
+                                <span>to</span>
+                                <input type="number" id="rsi-max" placeholder="Max" value="100">
+                            </div>
+                        </div>
+                        <div class="filter-item">
+                            <label>Volume (avg):</label>
+                            <select id="screener-volume" onchange="applyScreener()">
+                                <option value="all">All</option>
+                                <option value="high">High (>1M)</option>
+                                <option value="medium">Medium (100K-1M)</option>
+                                <option value="low">Low (<100K)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-row">
+                        <div class="filter-item">
+                            <label>Trend:</label>
+                            <select id="screener-trend" onchange="applyScreener()">
+                                <option value="all">All</option>
+                                <option value="bullish">Bullish (Above 200 DMA)</option>
+                                <option value="bearish">Bearish (Below 200 DMA)</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Signal:</label>
+                            <select id="screener-signal" onchange="applyScreener()">
+                                <option value="all">All</option>
+                                <option value="buy">Buy Signal</option>
+                                <option value="sell">Sell Signal</option>
+                                <option value="strong-buy">Strong Buy</option>
+                                <option value="strong-sell">Strong Sell</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Pattern:</label>
+                            <select id="screener-pattern" onchange="applyScreener()">
+                                <option value="all">All</option>
+                                <option value="breakout">Breakout</option>
+                                <option value="pullback">Pullback</option>
+                                <option value="reversal">Reversal</option>
+                                <option value="consolidation">Consolidation</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-actions">
+                        <button class="btn btn-primary" onclick="applyScreener()">
+                            <span>🔍 Apply Filters</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetScreener()">
+                            <span>↺ Reset</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="saveScreener()">
+                            <span>💾 Save Screener</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Screens -->
+                <div class="quick-screens">
+                    <h3>🚀 Quick Screens</h3>
+                    <div class="quick-screen-cards">
+                        <button class="quick-screen-card" onclick="loadQuickScreen('top-gainers')">
+                            <div class="quick-screen-icon">📈</div>
+                            <div class="quick-screen-info">
+                                <h4>Top Gainers Today</h4>
+                                <p>Stocks with highest % gain</p>
+                            </div>
+                        </button>
+                        <button class="quick-screen-card" onclick="loadQuickScreen('top-losers')">
+                            <div class="quick-screen-icon">📉</div>
+                            <div class="quick-screen-info">
+                                <h4>Top Losers Today</h4>
+                                <p>Stocks with highest % loss</p>
+                            </div>
+                        </button>
+                        <button class="quick-screen-card" onclick="loadQuickScreen('high-volume')">
+                            <div class="quick-screen-icon">📊</div>
+                            <div class="quick-screen-info">
+                                <h4>High Volume</h4>
+                                <p>Unusual volume spike</p>
+                            </div>
+                        </button>
+                        <button class="quick-screen-card" onclick="loadQuickScreen('breakout')">
+                            <div class="quick-screen-icon">⚡</div>
+                            <div class="quick-screen-info">
+                                <h4>Breakout Stocks</h4>
+                                <p>Price > 50 & 200 DMA</p>
+                            </div>
+                        </button>
+                        <button class="quick-screen-card" onclick="loadQuickScreen('oversold')">
+                            <div class="quick-screen-icon">🔄</div>
+                            <div class="quick-screen-info">
+                                <h4>Oversold Stocks</h4>
+                                <p>RSI < 30</p>
+                            </div>
+                        </button>
+                        <button class="quick-screen-card" onclick="loadQuickScreen('overbought')">
+                            <div class="quick-screen-icon">🔴</div>
+                            <div class="quick-screen-info">
+                                <h4>Overbought Stocks</h4>
+                                <p>RSI > 70</p>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Screener Results -->
+                <div class="screener-results">
+                    <div class="results-header">
+                        <h3>Results: <span id="results-count">0</span> stocks found</h3>
+                        <div class="results-actions">
+                            <button class="btn btn-small" onclick="exportResults()">
+                                <span>📥 Export CSV</span>
+                            </button>
+                            <button class="btn btn-small" onclick="sortResults('name')">
+                                <span>Sort: A-Z</span>
+                            </button>
+                            <button class="btn btn-small" onclick="sortResults('price')">
+                                <span>Sort: Price</span>
+                            </button>
+                            <button class="btn btn-small" onclick="sortResults('change')">
+                                <span>Sort: Change%</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="results-table-wrapper">
+                        <table class="results-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Stock</th>
+                                    <th>Price</th>
+                                    <th>Change</th>
+                                    <th>Volume</th>
+                                    <th>RSI</th>
+                                    <th>Signal</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="screener-results-table">
+                                <tr><td colspan="8" class="loading">Apply filters to see results</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== TECHNICAL ANALYSIS SECTION ===== -->
+            <section id="analysis" class="section">
+                <div class="section-header">
+                    <h1>📊 Technical Analysis</h1>
+                    <p>Advanced Chart Analysis & Trading Indicators for Any Stock</p>
+                </div>
+
+                <!-- Stock Selector -->
+                <div class="analysis-selector">
+                    <div class="selector-group">
+                        <label>Select Stock:</label>
+                        <select id="analysis-stock" onchange="loadStockAnalysis()">
+                            <option value="RELIANCE">Reliance Industries (RELIANCE)</option>
+                            <option value="TCS">Tata Consultancy Services (TCS)</option>
+                            <option value="INFY">Infosys (INFY)</option>
+                            <option value="HDFCBANK">HDFC Bank (HDFCBANK)</option>
+                            <option value="ICICIBANK">ICICI Bank (ICICIBANK)</option>
+                            <option value="KOTAKBANK">Kotak Mahindra Bank (KOTAKBANK)</option>
+                            <option value="HINDUNILVR">Hindustan Unilever (HINDUNILVR)</option>
+                            <option value="ITC">ITC Limited (ITC)</option>
+                            <option value="BHARTIARTL">Bharti Airtel (BHARTIARTL)</option>
+                            <option value="LT">Larsen & Toubro (LT)</option>
+                            <option value="SBIN">State Bank of India (SBIN)</option>
+                            <option value="ASIANPAINT">Asian Paints (ASIANPAINT)</option>
+                            <option value="MARUTI">Maruti Suzuki (MARUTI)</option>
+                            <option value="HCLTECH">HCL Technologies (HCLTECH)</option>
+                            <option value="WIPRO">Wipro (WIPRO)</option>
+                        </select>
+                    </div>
+                    <div class="selector-group">
+                        <label>Time Frame:</label>
+                        <select id="analysis-timeframe" onchange="loadStockAnalysis()">
+                            <option value="1D">1 Day</option>
+                            <option value="5D">5 Days</option>
+                            <option value="1M" selected>1 Month</option>
+                            <option value="3M">3 Months</option>
+                            <option value="6M">6 Months</option>
+                            <option value="1Y">1 Year</option>
+                        </select>
+                    </div>
+                    <div class="selector-group">
+                        <label>Chart Type:</label>
+                        <select id="analysis-chart-type" onchange="loadStockAnalysis()">
+                            <option value="candlestick">Candlestick</option>
+                            <option value="line">Line</option>
+                            <option value="area">Area</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Analysis Layout -->
+                <div class="analysis-layout">
+                    <!-- Chart -->
+                    <div class="analysis-chart">
+                        <div class="chart-header">
+                            <h3 id="chart-title">RELIANCE - Technical Analysis</h3>
+                            <div class="chart-info">
+                                <span class="chart-price" id="chart-price">Loading...</span>
+                                <span class="chart-change" id="chart-change">-</span>
+                            </div>
+                        </div>
+                        <canvas id="analysisChart"></canvas>
+                    </div>
+
+                    <!-- Indicators Panel -->
+                    <div class="analysis-panel">
+                        <div class="panel-section">
+                            <h3>🔧 Technical Indicators</h3>
+                            <div class="indicators-list">
+                                <div class="indicator-item">
+                                    <div class="indicator-header">
+                                        <span class="indicator-name">RSI (14)</span>
+                                        <span class="indicator-tooltip">Relative Strength Index</span>
+                                    </div>
+                                    <div class="indicator-bar">
+                                        <div class="indicator-fill" id="rsi-bar" style="width: 50%"></div>
+                                    </div>
+                                    <div class="indicator-values">
+                                        <span class="indicator-value" id="rsi-value">-</span>
+                                        <span class="indicator-signal" id="rsi-signal">-</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="indicator-item">
+                                    <div class="indicator-header">
+                                        <span class="indicator-name">MACD</span>
+                                        <span class="indicator-tooltip">Moving Average Convergence Divergence</span>
+                                    </div>
+                                    <div class="indicator-bar">
+                                        <div class="indicator-fill" id="macd-bar" style="width: 60%"></div>
+                                    </div>
+                                    <div class="indicator-values">
+                                        <span class="indicator-value" id="macd-value">-</span>
+                                        <span class="indicator-signal" id="macd-signal">-</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="indicator-item">
+                                    <div class="indicator-header">
+                                        <span class="indicator-name">Moving Avg (50)</span>
+                                        <span class="indicator-tooltip">50-Day Simple Moving Average</span>
+                                    </div>
+                                    <div class="indicator-values">
+                                        <span class="indicator-value" id="ma50-value">-</span>
+                                        <span class="indicator-signal" id="ma50-signal">-</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="indicator-item">
+                                    <div class="indicator-header">
+                                        <span class="indicator-name">Moving Avg (200)</span>
+                                        <span class="indicator-tooltip">200-Day Simple Moving Average</span>
+                                    </div>
+                                    <div class="indicator-values">
+                                        <span class="indicator-value" id="ma200-value">-</span>
+                                        <span class="indicator-signal" id="ma200-signal">-</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="indicator-item">
+                                    <div class="indicator-header">
+                                        <span class="indicator-name">Bollinger Bands</span>
+                                        <span class="indicator-tooltip">Volatility Indicator</span>
+                                    </div>
+                                    <div class="indicator-values">
+                                        <span class="indicator-value" id="bb-value">-</span>
+                                        <span class="indicator-signal" id="bb-signal">-</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="indicator-item">
+                                    <div class="indicator-header">
+                                        <span class="indicator-name">Volume</span>
+                                        <span class="indicator-tooltip">Trading Volume</span>
+                                    </div>
+                                    <div class="indicator-values">
+                                        <span class="indicator-value" id="volume-value">-</span>
+                                        <span class="indicator-signal" id="volume-signal">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Signal Summary -->
+                        <div class="panel-section">
+                            <h3>🎯 Trading Signal</h3>
+                            <div class="signal-display">
+                                <div class="signal-badge large" id="overall-signal">
+                                    <span class="signal-icon">❓</span>
+                                    <span class="signal-text">Analyzing...</span>
+                                </div>
+                                <div class="signal-details" id="signal-details">
+                                    <p>Select a stock and timeframe to see the analysis</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Support & Resistance -->
+                        <div class="panel-section">
+                            <h3>🎯 Support & Resistance</h3>
+                            <div class="sr-levels">
+                                <div class="sr-group">
+                                    <div class="sr-type">Resistance</div>
+                                    <div class="sr-level" id="r1">-</div>
+                                    <div class="sr-level" id="r2">-</div>
+                                    <div class="sr-level" id="r3">-</div>
+                                </div>
+                                <div class="sr-current">
+                                    <div class="sr-type">Current Price</div>
+                                    <div class="sr-value" id="current-price">-</div>
+                                </div>
+                                <div class="sr-group">
+                                    <div class="sr-type">Support</div>
+                                    <div class="sr-level" id="s1">-</div>
+                                    <div class="sr-level" id="s2">-</div>
+                                    <div class="sr-level" id="s3">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trade Recommendation -->
+                <div class="recommendation-section">
+                    <h3>💡 Trade Recommendation</h3>
+                    <div class="recommendation-grid">
+                        <div class="recommendation-card">
+                            <div class="rec-header">
+                                <span class="rec-icon">🎯</span>
+                                <span class="rec-title">Action</span>
+                            </div>
+                            <div class="rec-value" id="rec-action">-</div>
+                        </div>
+                        <div class="recommendation-card">
+                            <div class="rec-header">
+                                <span class="rec-icon">💰</span>
+                                <span class="rec-title">Entry Price</span>
+                            </div>
+                            <div class="rec-value" id="rec-entry">-</div>
+                        </div>
+                        <div class="recommendation-card">
+                            <div class="rec-header">
+                                <span class="rec-icon">🎯</span>
+                                <span class="rec-title">Target</span>
+                            </div>
+                            <div class="rec-value" id="rec-target">-</div>
+                        </div>
+                        <div class="recommendation-card">
+                            <div class="rec-header">
+                                <span class="rec-icon">🛡️</span>
+                                <span class="rec-title">Stop Loss</span>
+                            </div>
+                            <div class="rec-value" id="rec-stoploss">-</div>
+                        </div>
+                        <div class="recommendation-card">
+                            <div class="rec-header">
+                                <span class="rec-icon">⚖️</span>
+                                <span class="rec-title">Risk-Reward</span>
+                            </div>
+                            <div class="rec-value" id="rec-risk-reward">-</div>
+                        </div>
+                        <div class="recommendation-card">
+                            <div class="rec-header">
+                                <span class="rec-icon">📊</span>
+                                <span class="rec-title">Confidence</span>
+                            </div>
+                            <div class="rec-value" id="rec-confidence">-</div>
+                        </div>
+                    </div>
+                    <div class="recommendation-note">
+                        <p><strong>⚠️ Important:</strong> This is for educational purposes only. Always do your own research and consider your risk tolerance before trading. Past performance is not indicative of future results.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== PORTFOLIO/WATCHLIST SECTION ===== -->
+            <section id="portfolio" class="section">
+                <div class="section-header">
+                    <h1>💼 My Watchlist</h1>
+                    <p>Track Your Favorite Stocks with Live Prices & Alerts</p>
+                </div>
+
+                <!-- Add to Watchlist -->
+                <div class="watchlist-add">
+                    <div class="add-form">
+                        <input type="text" id="watchlist-stock-input" placeholder="Enter stock symbol (e.g., RELIANCE, TCS)">
+                        <button class="btn btn-primary" onclick="addToWatchlist()">
+                            <span>➕ Add to Watchlist</span>
+                        </button>
+                    </div>
+                    <div class="watchlist-quick-add">
+                        <h4>Quick Add:</h4>
+                        <div class="quick-add-buttons">
+                            <button class="btn btn-small" onclick="quickAdd('RELIANCE')">Reliance</button>
+                            <button class="btn btn-small" onclick="quickAdd('TCS')">TCS</button>
+                            <button class="btn btn-small" onclick="quickAdd('INFY')">Infosys</button>
+                            <button class="btn btn-small" onclick="quickAdd('HDFCBANK')">HDFC Bank</button>
+                            <button class="btn btn-small" onclick="quickAdd('ICICIBANK')">ICICI Bank</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Watchlist Table -->
+                <div class="watchlist-table">
+                    <div class="table-header">
+                        <h3>Your Watchlist (<span id="watchlist-count">0</span> stocks)</h3>
+                        <div class="table-actions">
+                            <button class="btn btn-small" onclick="refreshWatchlist()">
+                                <span>🔄 Refresh All</span>
+                            </button>
+                            <button class="btn btn-small" onclick="clearWatchlist()">
+                                <span>🗑️ Clear All</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Stock</th>
+                                    <th>Price</th>
+                                    <th>Change</th>
+                                    <th>Volume</th>
+                                    <th>Signal</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="watchlist-table">
+                                <tr>
+                                    <td colspan="7" class="empty-state">
+                                        <div class="empty-icon">📭</div>
+                                        <div class="empty-text">
+                                            <h4>Your watchlist is empty</h4>
+                                            <p>Add stocks to track their live prices and get alerts</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Price Alerts -->
+                <div class="alerts-section">
+                    <h3>🔔 Price Alerts</h3>
+                    <div class="alerts-grid" id="alerts-grid">
+                        <div class="alert-card empty">
+                            <div class="alert-icon">🔔</div>
+                            <div class="alert-text">
+                                <h4>No Alerts Set</h4>
+                                <p>Click on a stock in your watchlist to set price alerts</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Watchlist Performance -->
+                <div class="watchlist-stats">
+                    <h3>📊 Watchlist Performance</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">📈</div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="watchlist-gainers">0</span>
+                                <span class="stat-label">Gainers</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📉</div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="watchlist-losers">0</span>
+                                <span class="stat-label">Losers</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">⚖️</div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="watchlist-unchanged">0</span>
+                                <span class="stat-label">Unchanged</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">💰</div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="watchlist-total-change">₹0</span>
+                                <span class="stat-label">Total Change</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== LEARNING CENTER SECTION ===== -->
+            <section id="learning" class="section">
+                <div class="section-header">
+                    <h1>📚 Learning Center</h1>
+                    <p>Complete Beginner's Guide to Indian Stock Market Trading</p>
+                </div>
+
+                <!-- Learning Path -->
+                <div class="learning-path">
+                    <h3>🎓 Your Learning Journey</h3>
+                    <p>Follow this structured path to become a successful trader</p>
+                    <div class="path-steps">
+                        <div class="path-step current">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h4>Stock Market Basics</h4>
+                                <p>Understand how the market works</p>
+                                <span class="step-duration">~2 hours</span>
+                            </div>
+                        </div>
+                        <div class="path-step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h4>Technical Analysis</h4>
+                                <p>Learn charts and indicators</p>
+                                <span class="step-duration">~3 hours</span>
+                            </div>
+                        </div>
+                        <div class="path-step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h4>Intraday Trading</h4>
+                                <p>Master day trading strategies</p>
+                                <span class="step-duration">~4 hours</span>
+                            </div>
+                        </div>
+                        <div class="path-step">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h4>Risk Management</h4>
+                                <p>Protect your capital</p>
+                                <span class="step-duration">~2 hours</span>
+                            </div>
+                        </div>
+                        <div class="path-step">
+                            <div class="step-number">5</div>
+                            <div class="step-content">
+                                <h4>Advanced Strategies</h4>
+                                <p>Master level trading</p>
+                                <span class="step-duration">~5 hours</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="path-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 20%"></div>
+                        </div>
+                        <span class="progress-text">20% Complete</span>
+                    </div>
+                </div>
+
+                <!-- Beginner's Checklist -->
+                <div class="checklist-section">
+                    <h3>✅ Beginner's Trading Checklist</h3>
+                    <p>Complete these steps before you start trading with real money</p>
+                    <div class="checklist-grid">
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check-1">
+                            <label for="check-1">
+                                <span class="checklist-number">1</span>
+                                <span class="checklist-text">I have opened a Demat & Trading account</span>
+                            </label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check-2">
+                            <label for="check-2">
+                                <span class="checklist-number">2</span>
+                                <span class="checklist-text">I understand what a stock is and how the market works</span>
+                            </label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check-3">
+                            <label for="check-3">
+                                <span class="checklist-number">3</span>
+                                <span class="checklist-text">I can read candlestick charts</span>
+                            </label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check-4">
+                            <label for="check-4">
+                                <span class="checklist-number">4</span>
+                                <span class="checklist-text">I know how to set stop losses</span>
+                            </label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check-5">
+                            <label for="check-5">
+                                <span class="checklist-number">5</span>
+                                <span class="checklist-text">I have a risk management plan (1-2% per trade)</span>
+                            </label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check-6">
+                            <label for="check-6">
+                                <span class="checklist-number">6</span>
+                                <span class="checklist-text">I have practiced with virtual trading</span>
+                            </label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check-7">
+                            <label for="check-7">
+                                <span class="checklist-number">7</span>
+                                <span class="checklist-text">I understand technical indicators (RSI, MACD, MA)</span>
+                            </label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check-8">
+                            <label for="check-8">
+                                <span class="checklist-number">8</span>
+                                <span class="checklist-text">I know the market timings (9:15 AM - 3:30 PM IST)</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="checklist-completion">
+                        <p>You have completed <span id="checklist-completed">0</span> of 8 essential steps</p>
+                        <p id="checklist-message">Complete all steps before trading with real money!</p>
+                    </div>
+                </div>
+
+                <!-- Tutorial Cards -->
+                <div class="tutorials-section">
+                    <h3>📖 Trading Tutorials</h3>
+                    <div class="tutorials-grid">
+                        <div class="tutorial-card featured">
+                            <div class="tutorial-badge">Beginner</div>
+                            <div class="tutorial-icon">🏢</div>
+                            <h4>What is the Stock Market?</h4>
+                            <p>Learn how the Indian stock market works, including NSE, BSE, and how to buy/sell stocks.</p>
+                            <div class="tutorial-meta">
+                                <span class="tutorial-duration">⏱️ 15 min</span>
+                                <span class="tutorial-rating">⭐⭐⭐⭐⭐</span>
+                            </div>
+                            <button class="btn btn-primary" onclick="startTutorial('market-basics')">Start Learning</button>
+                        </div>
+                        
+                        <div class="tutorial-card">
+                            <div class="tutorial-badge">Beginner</div>
+                            <div class="tutorial-icon">💳</div>
+                            <h4>How to Open Demat Account</h4>
+                            <p>Step-by-step guide to open your first demat and trading account in India.</p>
+                            <div class="tutorial-meta">
+                                <span class="tutorial-duration">⏱️ 10 min</span>
+                                <span class="tutorial-rating">⭐⭐⭐⭐⭐</span>
+                            </div>
+                            <button class="btn btn-secondary" onclick="startTutorial('demat-account')">Start Learning</button>
+                        </div>
+                        
+                        <div class="tutorial-card">
+                            <div class="tutorial-badge">Beginner</div>
+                            <div class="tutorial-icon">📊</div>
+                            <h4>Understanding Candlestick Patterns</h4>
+                            <p>Learn to read candlestick charts and identify key patterns for trading.</p>
+                            <div class="tutorial-meta">
+                                <span class="tutorial-duration">⏱️ 20 min</span>
+                                <span class="tutorial-rating">⭐⭐⭐⭐⭐</span>
+                            </div>
+                            <button class="btn btn-secondary" onclick="startTutorial('candlesticks')">Start Learning</button>
+                        </div>
+                        
+                        <div class="tutorial-card">
+                            <div class="tutorial-badge">Beginner</div>
+                            <div class="tutorial-icon">🎯</div>
+                            <h4>Support & Resistance</h4>
+                            <p>Learn how to identify key support and resistance levels on charts.</p>
+                            <div class="tutorial-meta">
+                                <span class="tutorial-duration">⏱️ 15 min</span>
+                                <span class="tutorial-rating">⭐⭐⭐⭐⭐</span>
+                            </div>
+                            <button class="btn btn-secondary" onclick="startTutorial('support-resistance')">Start Learning</button>
+                        </div>
+                        
+                        <div class="tutorial-card">
+                            <div class="tutorial-badge">Intermediate</div>
+                            <div class="tutorial-icon">🔧</div>
+                            <h4>Technical Indicators Explained</h4>
+                            <p>RSI, MACD, Moving Averages, and other essential indicators for technical analysis.</p>
+                            <div class="tutorial-meta">
+                                <span class="tutorial-duration">⏱️ 25 min</span>
+                                <span class="tutorial-rating">⭐⭐⭐⭐⭐</span>
+                            </div>
+                            <button class="btn btn-secondary" onclick="startTutorial('indicators')">Start Learning</button>
+                        </div>
+                        
+                        <div class="tutorial-card">
+                            <div class="tutorial-badge">Intermediate</div>
+                            <div class="tutorial-icon">⚡</div>
+                            <h4>Intraday Trading for Beginners</h4>
+                            <p>Learn the basics of intraday trading, strategies and risk management.</p>
+                            <div class="tutorial-meta">
+                                <span class="tutorial-duration">⏱️ 30 min</span>
+                                <span class="tutorial-rating">⭐⭐⭐⭐⭐</span>
+                            </div>
+                            <button class="btn btn-secondary" onclick="startTutorial('intraday')">Start Learning</button>
+                        </div>
+                        
+                        <div class="tutorial-card">
+                            <div class="tutorial-badge">Advanced</div>
+                            <div class="tutorial-icon">🛡️</div>
+                            <h4>Risk Management in Trading</h4>
+                            <p>Essential techniques to protect your capital and maximize profits.</p>
+                            <div class="tutorial-meta">
+                                <span class="tutorial-duration">⏱️ 20 min</span>
+                                <span class="tutorial-rating">⭐⭐⭐⭐⭐</span>
+                            </div>
+                            <button class="btn btn-secondary" onclick="startTutorial('risk-management')">Start Learning</button>
+                        </div>
+                        
+                        <div class="tutorial-card">
+                            <div class="tutorial-badge">Advanced</div>
+                            <div class="tutorial-icon">📈</div>
+                            <h4>Advanced Trading Strategies</h4>
+                            <p>Learn breakout, pullback, momentum, and scalping strategies.</p>
+                            <div class="tutorial-meta">
+                                <span class="tutorial-duration">⏱️ 40 min</span>
+                                <span class="tutorial-rating">⭐⭐⭐⭐⭐</span>
+                            </div>
+                            <button class="btn btn-secondary" onclick="startTutorial('advanced-strategies')">Start Learning</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trading Glossary -->
+                <div class="glossary-section">
+                    <h3>📖 Trading Glossary</h3>
+                    <p>New to trading? Here are essential terms you should know:</p>
+                    <div class="glossary-grid">
+                        <div class="glossary-item">
+                            <div class="glossary-term">Bull Market</div>
+                            <div class="glossary-definition">A market that is rising and where the economy is sound.</div>
+                        </div>
+                        <div class="glossary-item">
+                            <div class="glossary-term">Bear Market</div>
+                            <div class="glossary-definition">A market in which prices are falling, encouraging selling.</div>
+                        </div>
+                        <div class="glossary-item">
+                            <div class="glossary-term">Liquidity</div>
+                            <div class="glossary-definition">How quickly you can buy or sell a stock without affecting its price.</div>
+                        </div>
+                        <div class="glossary-item">
+                            <div class="glossary-term">Volatility</div>
+                            <div class="glossary-definition">The rate at which the price of a stock increases or decreases.</div>
+                        </div>
+                        <div class="glossary-item">
+                            <div class="glossary-term">Stop Loss</div>
+                            <div class="glossary-definition">An order to sell a stock when it reaches a certain price to limit losses.</div>
+                        </div>
+                        <div class="glossary-item">
+                            <div class="glossary-term">Demat Account</div>
+                            <div class="glossary-definition">An account that holds your shares in electronic format.</div>
+                        </div>
+                        <div class="glossary-item">
+                            <div class="glossary-term">NSE</div>
+                            <div class="glossary-definition">National Stock Exchange - India's largest stock exchange.</div>
+                        </div>
+                        <div class="glossary-item">
+                            <div class="glossary-term">BSE</div>
+                            <div class="glossary-definition">Bombay Stock Exchange - Asia's oldest stock exchange.</div>
+                        </div>
+                        <div class="glossary-item">
+                            <div class="glossary-term">Intraday Trading</div>
+                            <div class="glossary-definition">Buying and selling stocks on the same day. All positions must be squared off before market closes.</div>
+                        </div>
+                        <div class="glossary-item">
+                            <div class="glossary-term">Candlestick</div>
+                            <div class="glossary-definition">A chart that displays the high, low, open, and close prices for a stock.</div>
+                        </div>
+                        <div class="glossary-item">
+                            <div class="glossary-term">RSI</div>
+                            <div class="glossary-definition">Relative Strength Index - A momentum indicator that measures the speed and change of price movements.</div>
+                        </div>
+                        <div class="glossary-item">
+                            <div class="glossary-term">MACD</div>
+                            <div class="glossary-definition">Moving Average Convergence Divergence - A trend-following momentum indicator.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Section -->
+                <div class="faq-section">
+                    <h3>❓ Frequently Asked Questions</h3>
+                    <div class="faq-grid">
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                <span>How much money do I need to start trading?</span>
+                                <span class="faq-icon">+</span>
+                            </div>
+                            <div class="faq-answer">
+                                <p>You can start with as little as ₹1,000-₹5,000. However, we recommend starting with at least ₹50,000 to properly diversify and manage risk effectively. With smaller amounts, transaction costs can eat into your profits.</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                <span>What is intraday trading?</span>
+                                <span class="faq-icon">+</span>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Intraday trading means buying and selling stocks on the same day. You must square off all positions before the market closes (3:15 PM IST). No delivery of shares happens in intraday trading, and you can use margin (leverage) to trade with more money than you have.</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                <span>Can I trade on weekends?</span>
+                                <span class="faq-icon">+</span>
+                            </div>
+                            <div class="faq-answer">
+                                <p>No, the Indian stock market (NSE and BSE) is closed on weekends (Saturday and Sunday) and public holidays. Trading hours are Monday to Friday, 9:15 AM to 3:30 PM IST. However, you can place AMO (After Market Orders) after 3:30 PM for the next trading day.</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                <span>What is a stop loss and why is it important?</span>
+                                <span class="faq-icon">+</span>
+                            </div>
+                            <div class="faq-answer">
+                                <p>A stop loss is an order to automatically sell a stock when it reaches a certain price. It's crucial for limiting your losses and protecting your capital from significant downside. Without a stop loss, a single bad trade can wipe out your entire account. Always use stop loss!</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                <span>How do I choose which stocks to buy?</span>
+                                <span class="faq-icon">+</span>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Use our stock screener to find stocks that match your criteria. Consider factors like: fundamentals (P/E, ROE), technical indicators (RSI, MACD, Moving Averages), sector trends, volume, and news. As a beginner, start with large-cap, liquid stocks like RELIANCE, TCS, INFY, HDFCBANK.</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                <span>What is the best time to trade intraday?</span>
+                                <span class="faq-icon">+</span>
+                            </div>
+                            <div class="faq-answer">
+                                <p>The best time for intraday trading is during the first hour (9:15 AM - 10:15 AM) when most of the day's movement happens. The last hour (2:30 PM - 3:30 PM) is also good for squaring off positions. Avoid trading during lunch hours (12:30 PM - 1:30 PM) as volumes are low.</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                <span>How many stocks should I trade at once?</span>
+                                <span class="faq-icon">+</span>
+                            </div>
+                            <div class="faq-answer">
+                                <p>As a beginner, we recommend trading only 1-2 stocks at a time. This helps you focus and understand the stock's behavior better. As you gain experience, you can increase this to 3-5 stocks. Never trade more than 5-10 stocks at once, as it becomes difficult to monitor all of them effectively.</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">
+                                <span>What is the 1% rule in trading?</span>
+                                <span class="faq-icon">+</span>
+                            </div>
+                            <div class="faq-answer">
+                                <p>The 1% rule means you should never risk more than 1% of your trading capital on a single trade. For example, if you have ₹1,00,000, you should risk only ₹1,000 per trade. This ensures that even if you have 10 losing trades in a row, you won't lose more than 10% of your capital.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== SETTINGS SECTION ===== -->
+            <section id="settings" class="section">
+                <div class="section-header">
+                    <h1>⚙️ Settings</h1>
+                    <p>Customize Your Trading Experience</p>
+                </div>
+
+                <div class="settings-grid">
+                    <!-- Profile Settings -->
+                    <div class="settings-card">
+                        <h3>👤 Profile Settings</h3>
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>Your Name</label>
+                                <input type="text" id="user-name" value="Beginner Trader" placeholder="Enter your name">
+                            </div>
+                            <div class="form-group">
+                                <label>Trading Experience</label>
+                                <select id="user-experience">
+                                    <option value="beginner" selected>Beginner (0-1 year)</option>
+                                    <option value="intermediate">Intermediate (1-3 years)</option>
+                                    <option value="advanced">Advanced (3+ years)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Risk Tolerance</label>
+                                <select id="user-risk-tolerance">
+                                    <option value="low">Low Risk</option>
+                                    <option value="medium" selected>Medium Risk</option>
+                                    <option value="high">High Risk</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Capital (for position sizing)</label>
+                                <input type="number" id="user-capital" value="100000" placeholder="Enter your capital in ₹">
+                            </div>
+                            <button class="btn btn-primary" onclick="saveProfileSettings()">
+                                <span>💾 Save Profile</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Data Source Settings -->
+                    <div class="settings-card">
+                        <h3>🔗 Data Source</h3>
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>Market Data Provider</label>
+                                <select id="data-provider">
+                                    <option value="mock" selected>Mock Data (Demo)</option>
+                                    <option value="nse">NSE India (Free)</option>
+                                    <option value="twelve-data">Twelve Data (Free API)</option>
+                                    <option value="yahoo">Yahoo Finance (Free)</option>
+                                </select>
+                                <p class="form-hint">Note: Real-time data may require API keys</p>
+                            </div>
+                            <div class="form-group" id="api-key-group" style="display: none;">
+                                <label>API Key</label>
+                                <input type="password" id="api-key" placeholder="Enter your API key">
+                                <p class="form-hint">Get free API key from <a href="https://twelvedata.com/" target="_blank">Twelve Data</a></p>
+                            </div>
+                            <button class="btn btn-secondary" onclick="testAPIConnection()">
+                                <span>🧪 Test Connection</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Notification Settings -->
+                    <div class="settings-card">
+                        <h3>🔔 Notifications</h3>
+                        <div class="settings-form">
+                            <div class="form-group checkbox">
+                                <label>
+                                    <input type="checkbox" id="notify-price" checked>
+                                    <span>Price Alerts</span>
+                                </label>
+                                <p class="form-hint">Get notified when stocks reach your target prices</p>
+                            </div>
+                            <div class="form-group checkbox">
+                                <label>
+                                    <input type="checkbox" id="notify-signal" checked>
+                                    <span>New Signals</span>
+                                </label>
+                                <p class="form-hint">Receive notifications for new buy/sell signals</p>
+                            </div>
+                            <div class="form-group checkbox">
+                                <label>
+                                    <input type="checkbox" id="notify-market" checked>
+                                    <span>Market Updates</span>
+                                </label>
+                                <p class="form-hint">Daily market summary and news</p>
+                            </div>
+                            <div class="form-group checkbox">
+                                <label>
+                                    <input type="checkbox" id="notify-educational">
+                                    <span>Educational Content</span>
+                                </label>
+                                <p class="form-hint">New tutorials and learning materials</p>
+                            </div>
+                            <button class="btn btn-primary" onclick="saveNotificationSettings()">
+                                <span>💾 Save Preferences</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Appearance Settings -->
+                    <div class="settings-card">
+                        <h3>🎨 Appearance</h3>
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>Theme</label>
+                                <select id="theme-selector" onchange="changeTheme()">
+                                    <option value="light" selected>Light Mode</option>
+                                    <option value="dark">Dark Mode</option>
+                                    <option value="system">System Default</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Chart Style</label>
+                                <select id="chart-style">
+                                    <option value="candlestick">Candlestick</option>
+                                    <option value="line">Line Chart</option>
+                                    <option value="area">Area Chart</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Default Timeframe</label>
+                                <select id="default-timeframe">
+                                    <option value="1D">1 Day</option>
+                                    <option value="5D">5 Days</option>
+                                    <option value="1M" selected>1 Month</option>
+                                    <option value="3M">3 Months</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Auto-Refresh Settings -->
+                    <div class="settings-card">
+                        <h3>🔄 Auto-Refresh</h3>
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>Dashboard Refresh</label>
+                                <select id="refresh-interval">
+                                    <option value="30000" selected>30 seconds</option>
+                                    <option value="60000">1 minute</option>
+                                    <option value="120000">2 minutes</option>
+                                    <option value="300000">5 minutes</option>
+                                    <option value="0">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="form-group checkbox">
+                                <label>
+                                    <input type="checkbox" id="refresh-enabled" checked>
+                                    <span>Enable Auto-Refresh</span>
+                                </label>
+                            </div>
+                            <button class="btn btn-primary" onclick="saveRefreshSettings()">
+                                <span>💾 Save Settings</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Data & Privacy -->
+                    <div class="settings-card">
+                        <h3>💾 Data & Privacy</h3>
+                        <div class="settings-form">
+                            <button class="btn btn-secondary" onclick="exportWatchlist()">
+                                <span>📥 Export Watchlist</span>
+                            </button>
+                            <button class="btn btn-secondary" onclick="importWatchlist()">
+                                <span>📤 Import Watchlist</span>
+                            </button>
+                            <button class="btn btn-secondary" onclick="clearCache()">
+                                <span>🧹 Clear Cache</span>
+                            </button>
+                            <button class="btn btn-danger" onclick="resetSettings()">
+                                <span>↺ Reset All Settings</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Information -->
+                <div class="api-info-section">
+                    <h3>🔌 API Information</h3>
+                    <div class="api-info-grid">
+                        <div class="api-info-card">
+                            <h4>📊 Twelve Data API</h4>
+                            <p>Free tier: 800 requests/day</p>
+                            <p>Supports Indian stocks (NSE, BSE)</p>
+                            <p>Real-time and historical data</p>
+                            <a href="https://twelvedata.com/" target="_blank" class="btn btn-small">Get API Key</a>
+                        </div>
+                        <div class="api-info-card">
+                            <h4>🇮🇳 NSE India API</h4>
+                            <p>Free, no API key required</p>
+                            <p>Official NSE data</p>
+                            <p>15-20 min delay for free data</p>
+                            <a href="https://www.nseindia.com/" target="_blank" class="btn btn-small">Visit NSE</a>
+                        </div>
+                        <div class="api-info-card">
+                            <h4>📈 Yahoo Finance API</h4>
+                            <p>Free, no API key required</p>
+                            <p>Supports Indian stocks</p>
+                            <p>Delayed data (15 min)</p>
+                            <a href="https://finance.yahoo.com/" target="_blank" class="btn btn-small">Visit Yahoo Finance</a>
+                        </div>
+                    </div>
+                    <div class="api-note">
+                        <p><strong>Note:</strong> For real-time data, we recommend using Twelve Data API with a free API key. The dashboard will work with mock data for demonstration purposes.</p>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- ===== MODAL ===== -->
+        <div id="modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modal-title">Details</h2>
+                    <span class="modal-close" onclick="closeModal()">&times;</span>
+                </div>
+                <div class="modal-body" id="modal-body">
+                    <!-- Content will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TOAST NOTIFICATION ===== -->
+        <div id="toast" class="toast"></div>
+
+        <!-- ===== LOADING OVERLAY ===== -->
+        <div id="loading-overlay" class="loading-overlay">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading Dashboard...</div>
+        </div>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
