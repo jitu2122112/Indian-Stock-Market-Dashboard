@@ -60,6 +60,13 @@ Then open `http://localhost:8000` in your browser.
 - **FII & DII Activity**: Track foreign and domestic institutional investor flows
 - **Market Statistics**: Advances, declines, unchanged stocks
 
+### **⚡ Full-NSE Intraday Scan (static / GitHub Pages)**
+- **Two-stage screen**: snapshots the official NSE EQ directory when available, applies the ₹20 and 1,00,000-share liquidity rules, then fetches daily history for the top 15 candidates.
+- **Actionable plan display**: the highest-ranked setup shows entry, 1.5R / 3R targets, a max-0.8% or 0.75-ATR stop, confidence, reasons, suggested quantity and money needed. Runners-up and the Top 10 open full plans in the modal.
+- **No backend or required key**: Stooq batch CSV is the primary public source; Yahoo Finance through rotating public CORS relays and an optional Twelve Data key are fallbacks. The official NSE list is cached per IST day in localStorage.
+- **Resilient labels**: if public data cannot be reached, the UI explicitly switches to a curated 28-stock/demo fallback instead of claiming a full-market scan. Curated prices refresh every 60 seconds; full scans run about six seconds after loading and every 15 minutes during NSE hours.
+- **Important**: public quotes can be delayed by roughly 1–15 minutes. This is a rule-based educational screen, **not SEBI-registered investment advice**; verify prices and risk before trading.
+
 ### **🎯 Intraday Trading Signals**
 - **Live Signals**: Real-time buy/sell signals with:
   - **Entry Price**: Where to buy/sell
