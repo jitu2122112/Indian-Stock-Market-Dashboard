@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Indian Stock Market Live Dashboard - Beginner's Guide</title>
-    <meta name="description" content="Real-time Indian stock market dashboard with live prices, intraday trading signals, entry/exit points, stop loss, and beginner guidance">
+    <meta name="description" content="Static Indian stock market dashboard with public delayed prices, rule-based intraday screens, entry/exit levels, and beginner guidance">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <!-- Chart.js (pinned version + backup CDN). The dashboard works even if
@@ -38,12 +38,15 @@
                 <div class="last-updated" id="last-updated">
                     Last updated: Just now
                 </div>
-                <button class="btn btn-primary btn-small" onclick="refreshAllData()">
+                <button class="btn btn-primary btn-small" onclick="refreshAllData()" title="Refresh curated 28-stock prices">
                     <span>🔄 Refresh</span>
+                </button>
+                <button class="btn btn-secondary btn-small full-scan-header-button" id="full-market-scan-button" onclick="runFullMarketScan(true)">
+                    <span>⚡ Full market scan</span>
                 </button>
                 <div class="api-status" id="api-status">
                     <span class="status-dot"></span>
-                    <span>Live Data</span>
+                    <span>Public data loading…</span>
                 </div>
             </div>
         </header>
@@ -111,7 +114,7 @@
             <section id="dashboard" class="section active">
                 <div class="section-header">
                     <h1>🏠 Live Market Dashboard</h1>
-                    <p>Real-time Indian Stock Market Data - NSE & BSE</p>
+                    <p>Public delayed NSE market data and educational screening tools</p>
                 </div>
 
                 <!-- Market Overview Cards -->
@@ -241,6 +244,69 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Full-market intraday screener -->
+                <section class="intraday-scan-section" aria-labelledby="intraday-scan-title">
+                    <div class="intraday-scan-header">
+                        <div>
+                            <div class="eyebrow">RULE-BASED INTRADAY SCREEN</div>
+                            <h2 id="intraday-scan-title">Today&apos;s Best Intraday Trade</h2>
+                            <p id="scan-status" class="scan-status" aria-live="polite">Preparing a full-NSE-market scan…</p>
+                        </div>
+                        <div class="scan-controls">
+                            <span class="universe-badge" id="universe-badge" title="The symbols being considered">Universe: loading…</span>
+                            <button class="btn btn-primary" id="full-market-scan-inline-button" onclick="runFullMarketScan(true)">⚡ Full market scan</button>
+                        </div>
+                    </div>
+
+                    <div class="scan-progress-shell" id="scan-progress-shell" aria-live="polite">
+                        <div class="scan-progress-meta"><span id="scan-progress-label">Waiting to scan</span><span id="scan-progress-value">0%</span></div>
+                        <div class="scan-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="scan-progress-track">
+                            <div class="scan-progress-fill" id="scan-progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <article class="intraday-hero-card" id="intraday-hero-card">
+                        <div class="hero-card-topline"><span class="hero-live-dot"></span><span id="hero-data-label">Loading scan data</span></div>
+                        <div id="intraday-hero-content" class="intraday-hero-content">
+                            <div class="hero-placeholder">
+                                <strong>Finding a liquid setup…</strong>
+                                <span>Full scan looks for ₹20+ stocks with at least 1,00,000 shares traded.</span>
+                            </div>
+                        </div>
+                        <div class="hero-runners" id="hero-runners" aria-live="polite"></div>
+                    </article>
+
+                    <div class="intraday-table-card">
+                        <div class="intraday-table-heading">
+                            <div>
+                                <h3>Top 10 intraday trade plans</h3>
+                                <p id="top10-subtitle">Plans appear after the two-stage scan completes.</p>
+                            </div>
+                            <span class="delayed-data-note">Public data may be delayed ~1–15 min</span>
+                        </div>
+                        <div class="stocks-table intraday-table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Stock</th>
+                                        <th>Price</th>
+                                        <th>Chg%</th>
+                                        <th>Entry</th>
+                                        <th>Target</th>
+                                        <th>Stop-loss</th>
+                                        <th>Money needed</th>
+                                        <th>Plan</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="intraday-top10-table">
+                                    <tr><td colspan="8" class="loading">Waiting for market data…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <p class="intraday-disclaimer"><strong>Educational screen, not advice:</strong> delayed public data and rule-based signals are not a recommendation or SEBI-registered investment advice. Check live prices, liquidity and your own risk before placing any order.</p>
+                </section>
 
                 <!-- Charts Row -->
                 <div class="charts-grid">
@@ -1539,8 +1605,8 @@
                             <div class="form-group">
                                 <label>Dashboard Refresh</label>
                                 <select id="refresh-interval">
-                                    <option value="30000" selected>30 seconds</option>
-                                    <option value="60000">1 minute</option>
+                                    <option value="30000">30 seconds</option>
+                                    <option value="60000" selected>1 minute</option>
                                     <option value="120000">2 minutes</option>
                                     <option value="300000">5 minutes</option>
                                     <option value="0">Disabled</option>
@@ -1639,6 +1705,8 @@
 
     </div>
 
+    <script src="nse-universe.js"></script>
+    <script src="live-data.js"></script>
     <script src="app.js"></script>
     <script>
         // FAILSAFE: the loading overlay must NEVER stick forever, even if

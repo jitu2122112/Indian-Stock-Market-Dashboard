@@ -17,7 +17,7 @@
 const CONFIG = {
     debug: false,
     autoRefresh: true,
-    refreshInterval: 30000, // 30 seconds
+    refreshInterval: 60000, // 60 seconds
     dataSource: 'mock', // 'mock', 'nse', 'twelve-data', 'yahoo'
     apiKey: '', // For Twelve Data API
     maxWatchlistItems: 20,
@@ -123,6 +123,406 @@ const STOCKS = [
     { symbol: 'BHARTIARTL', name: 'Bharti Airtel', sector: 'telecom', marketCap: 'large', price: 850.25, change: +12.75, percent: +1.52, volume: 9500000, rsi: 60.1, signal: 'buy', trend: 'bullish' },
     { symbol: 'JIOFIN', name: 'Jio Financial Services', sector: 'telecom', marketCap: 'large', price: 250.00, change: +3.50, percent: +1.42, volume: 4200000, rsi: 56.4, signal: 'buy', trend: 'bullish' }
 ];
+
+// ============================================
+// FULL-MARKET INTRADAY SCAN
+// Public browser feeds are delayed and may fail. This layer never replaces a
+// failed full-NSE scan with a claim that the demo view is market-wide.
+// ============================================
+const CURATED_INTRADAY_SYMBOLS = STOCKS.slice(0, 28).map(stock => stock.symbol);
+const intradayScanState = {
+    running: false,
+    plans: [],
+    universe: null,
+    latestCuratedQuotes: [],
+    mode: 'waiting',
+    lastScanAt: null
+};
+
+function getLiveDataOptions(extra) {
+    const keyInput = document.getElementById('api-key');
+    return Object.assign({
+        timeoutMs: 7000,
+        twelveDataKey: CONFIG.apiKey || (keyInput ? keyInput.value.trim() : '')
+    }, extra || {});
+}
+
+function initFullMarketScanner() {
+    const badge = document.getElementById('universe-badge');
+    if (badge) badge.textContent = 'Universe: resolving NSE list…';
+    setScanProgress(0, 'Preparing full-market scanner');
+
+    // The 28 dashboard names refresh independently of the more expensive scan.
+    refreshCuratedQuotes(true);
+    if (window.curatedMarketRefreshInterval) clearInterval(window.curatedMarketRefreshInterval);
+    window.curatedMarketRefreshInterval = setInterval(function () {
+        refreshCuratedQuotes(true);
+    }, 60000);
+
+    // Wait a moment so the existing dashboard paints before the larger request.
+    setTimeout(function () { runFullMarketScan(false); }, 6000);
+    if (window.fullMarketRescanInterval) clearInterval(window.fullMarketRescanInterval);
+    window.fullMarketRescanInterval = setInterval(function () {
+        if (window.LiveData && window.LiveData.isMarketOpen && window.LiveData.isMarketOpen()) runFullMarketScan(false);
+    }, 15 * 60 * 1000);
+}
+
+function setScanProgress(percent, label) {
+    const safePercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    const fill = document.getElementById('scan-progress-fill');
+    const track = document.getElementById('scan-progress-track');
+    const text = document.getElementById('scan-progress-label');
+    const value = document.getElementById('scan-progress-value');
+    if (fill) fill.style.width = safePercent + '%';
+    if (track) track.setAttribute('aria-valuenow', String(safePercent));
+    if (text) text.textContent = label || 'Scanning';
+    if (value) value.textContent = safePercent + '%';
+}
+
+function setScanBusy(isBusy) {
+    ['full-market-scan-button', 'full-market-scan-inline-button'].forEach(function (id) {
+        const button = document.getElementById(id);
+        if (button) {
+            button.disabled = isBusy;
+            button.classList.toggle('is-loading', isBusy);
+        }
+    });
+}
+
+function setScanStatus(message, kind) {
+    const status = document.getElementById('scan-status');
+    if (!status) return;
+    status.textContent = message;
+    status.className = 'scan-status' + (kind ? ' is-' + kind : '');
+}
+
+function updateUniverseBadge(universe) {
+    const badge = document.getElementById('universe-badge');
+    if (!badge || !universe) return;
+    badge.textContent = 'Universe: ' + Number(universe.count || 0).toLocaleString('en-IN') + ' · ' + universe.source;
+    badge.title = 'Updated: ' + (universe.updated || 'unknown') + '. ' + universe.source;
+}
+
+function pseudoStockFromQuote(quote) {
+    const existing = STOCKS.find(function (stock) { return stock.symbol === quote.symbol; });
+    const price = Number(quote.price || quote.close || 0);
+    const open = Number(quote.open || price);
+    return {
+        symbol: quote.symbol,
+        name: existing ? existing.name : quote.symbol,
+        price: price,
+        open: open,
+        high: Number(quote.high || price),
+        low: Number(quote.low || price),
+        volume: Number(quote.volume || 0),
+        change: Number.isFinite(Number(quote.change)) ? Number(quote.change) : price - open,
+        percent: Number.isFinite(Number(quote.percent)) ? Number(quote.percent) : (open ? ((price - open) / open) * 100 : 0),
+        source: quote.source || 'Unavailable',
+        score: 0
+    };
+}
+
+function scoreIntraday(stock) {
+    const price = Number(stock.price) || 0;
+    const open = Number(stock.open) || price;
+    const high = Number(stock.high) || price;
+    const low = Number(stock.low) || price;
+    const changePercent = Number(stock.percent) || 0;
+    const range = Math.max(high - low, price * 0.001);
+    const closePosition = Math.max(0, Math.min(1, (price - low) / range));
+    const liquidity = Math.min(18, Math.log10(Math.max(1, Number(stock.volume) || 1) / 100000) * 10 + 9);
+    const momentum = Math.max(-14, Math.min(28, changePercent * 10));
+    const greenOpen = price >= open ? 7 : -7;
+    return 45 + momentum + (closePosition * 14) + liquidity + greenOpen;
+}
+
+function calculateHistoricalMetrics(stock, historyResult) {
+    const bars = historyResult && Array.isArray(historyResult.bars) ? historyResult.bars : [];
+    const closes = bars.map(function (bar) { return Number(bar.close); }).filter(Number.isFinite);
+    const volumes = bars.map(function (bar) { return Number(bar.volume); }).filter(Number.isFinite);
+    const data = window.LiveData || {};
+    const rsiValue = data.rsi ? data.rsi(closes, 14) : null;
+    const sma20 = data.sma ? data.sma(closes, 20) : null;
+    const atr14 = data.atr ? data.atr(bars, 14) : null;
+    const averageVolume = data.sma ? data.sma(volumes, 20) : null;
+    const relativeVolume = averageVolume && averageVolume > 0 ? stock.volume / averageVolume : null;
+    let score = scoreIntraday(stock);
+    if (sma20 !== null) score += stock.price >= sma20 ? 12 : -9;
+    if (rsiValue !== null) {
+        if (rsiValue >= 52 && rsiValue <= 68) score += 10;
+        else if (rsiValue >= 45 && rsiValue < 75) score += 4;
+        else score -= 5;
+    }
+    if (relativeVolume !== null) score += Math.max(-3, Math.min(12, (relativeVolume - 0.5) * 7));
+    return Object.assign(stock, {
+        rsi: rsiValue,
+        sma20: sma20,
+        atr14: atr14,
+        averageVolume: averageVolume,
+        relativeVolume: relativeVolume,
+        historySource: historyResult && historyResult.source,
+        hasHistory: bars.length >= 15,
+        score: score
+    });
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+    const output = new Array(items.length);
+    let cursor = 0;
+    async function worker() {
+        while (cursor < items.length) {
+            const index = cursor;
+            cursor += 1;
+            try { output[index] = await mapper(items[index], index); }
+            catch (error) { output[index] = items[index]; }
+        }
+    }
+    await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), items.length) }, worker));
+    return output;
+}
+
+function riskCapital() {
+    const field = document.getElementById('user-capital');
+    const saved = Number(safeStorageGet('userCapital', '100000'));
+    const value = field ? Number(field.value) : saved;
+    return Number.isFinite(value) && value > 0 ? value : 100000;
+}
+
+function buildTradePlan(stock) {
+    const entry = Number(stock.price);
+    const atrValue = Number(stock.atr14);
+    // A 0.8% cap and 0.75 ATR volatility stop: choose the tighter distance.
+    const stopDistance = Math.max(0.01, Math.min(entry * 0.008, Number.isFinite(atrValue) && atrValue > 0 ? atrValue * 0.75 : entry * 0.008));
+    const stopLoss = Math.max(0.01, entry - stopDistance);
+    const target1 = entry + (stopDistance * 1.5);
+    const target2 = entry + (stopDistance * 3);
+    const capital = riskCapital();
+    const riskQuantity = Math.floor((capital * 0.01) / stopDistance);
+    const allocationQuantity = Math.floor((capital * 0.25) / entry);
+    const quantity = Math.max(0, Math.min(riskQuantity, allocationQuantity));
+    const reasons = [];
+    if (stock.percent > 0) reasons.push('Up ' + stock.percent.toFixed(2) + '% from the opening price');
+    if (stock.price >= stock.sma20 && stock.sma20 !== null) reasons.push('Trading above 20-DMA');
+    if (stock.rsi !== null && stock.rsi >= 50 && stock.rsi <= 70) reasons.push('RSI-14 is constructive at ' + stock.rsi.toFixed(0));
+    if (stock.relativeVolume !== null && stock.relativeVolume >= 1) reasons.push(stock.relativeVolume.toFixed(1) + '× the 20-day average volume');
+    if (!reasons.length) reasons.push('Passed ₹20 and 1,00,000-share liquidity filters');
+    if (!stock.hasHistory) reasons.push('Historical indicator data was unavailable; confidence is reduced');
+    const confidence = Math.round(Math.max(50, Math.min(92, 55 + (stock.score - 45) * 0.45 + (stock.hasHistory ? 4 : -5))));
+    return Object.assign({}, stock, {
+        side: 'BUY',
+        entry: entry,
+        stopDistance: stopDistance,
+        stopLoss: stopLoss,
+        target1: target1,
+        target2: target2,
+        quantity: quantity,
+        moneyNeeded: quantity * entry,
+        capital: capital,
+        confidence: confidence,
+        reasons: reasons
+    });
+}
+
+function money(value, decimals) {
+    const fraction = decimals === undefined ? 2 : decimals;
+    return '₹' + Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: fraction, maximumFractionDigits: fraction });
+}
+
+function escapeHtml(value) {
+    return String(value === undefined || value === null ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function renderTradePlans(plans, meta) {
+    const options = meta || {};
+    intradayScanState.plans = plans || [];
+    const hero = document.getElementById('intraday-hero-content');
+    const runners = document.getElementById('hero-runners');
+    const table = document.getElementById('intraday-top10-table');
+    const label = document.getElementById('hero-data-label');
+    const subtitle = document.getElementById('top10-subtitle');
+    if (label) label.textContent = options.label || 'Rule-based scan';
+    if (subtitle) subtitle.textContent = options.subtitle || 'Entry and exits use a max 0.8% / 0.75 ATR stop.';
+    if (!plans || !plans.length) {
+        if (hero) hero.innerHTML = '<div class="hero-placeholder"><strong>No eligible setup right now.</strong><span>Try a refresh later; public market feeds can be delayed or temporarily unavailable.</span></div>';
+        if (runners) runners.innerHTML = '';
+        if (table) table.innerHTML = '<tr><td colspan="8" class="loading">No liquid setup is available from the current data.</td></tr>';
+        return;
+    }
+    const best = plans[0];
+    if (hero) hero.innerHTML = `
+        <div class="hero-plan-head">
+            <div><div class="hero-plan-symbol">${escapeHtml(best.symbol)}</div><div class="hero-plan-name">${escapeHtml(best.name)} · ${best.side} setup</div></div>
+            <div class="confidence-block"><span class="confidence-value">${best.confidence}%</span><span class="confidence-label">confidence</span></div>
+        </div>
+        <div class="hero-plan-grid">
+            <div class="hero-metric"><span class="hero-metric-label">Entry</span><span class="hero-metric-value">${money(best.entry)}</span></div>
+            <div class="hero-metric"><span class="hero-metric-label">Target 1 · 1.5R</span><span class="hero-metric-value target">${money(best.target1)}</span></div>
+            <div class="hero-metric"><span class="hero-metric-label">Target 2 · 3R</span><span class="hero-metric-value target">${money(best.target2)}</span></div>
+            <div class="hero-metric"><span class="hero-metric-label">Stop-loss</span><span class="hero-metric-value stop">${money(best.stopLoss)}</span></div>
+            <div class="hero-metric"><span class="hero-metric-label">Suggested qty</span><span class="hero-metric-value">${best.quantity.toLocaleString('en-IN')} shares</span></div>
+            <div class="hero-metric"><span class="hero-metric-label">Money needed</span><span class="hero-metric-value">${money(best.moneyNeeded, 0)}</span></div>
+            <div class="hero-metric"><span class="hero-metric-label">Risk / share</span><span class="hero-metric-value">${money(best.stopDistance)}</span></div>
+            <div class="hero-metric"><span class="hero-metric-label">Scan score</span><span class="hero-metric-value">${best.score.toFixed(0)}</span></div>
+        </div>
+        <p class="hero-reasons"><strong>Why it screened:</strong> ${best.reasons.map(escapeHtml).join(' · ')}</p>`;
+    if (runners) runners.innerHTML = plans.slice(1, 3).map(function (plan, index) {
+        return `<div class="runner-card"><div><div class="runner-rank">RUNNER #${index + 2}</div><div class="runner-symbol">${escapeHtml(plan.symbol)} <span class="runner-meta">${money(plan.entry)} · ${plan.confidence}%</span></div></div><button class="btn btn-small" onclick="viewTradePlan(${index + 1})">View plan</button></div>`;
+    }).join('');
+    if (table) table.innerHTML = plans.map(function (plan, index) {
+        const changeClass = plan.percent >= 0 ? 'positive' : 'negative';
+        return `<tr>
+            <td><div class="intraday-stock-symbol">${escapeHtml(plan.symbol)}</div><div class="intraday-stock-meta">${escapeHtml(plan.name)}</div></td>
+            <td>${money(plan.price)}</td>
+            <td class="${changeClass}">${plan.percent >= 0 ? '+' : ''}${plan.percent.toFixed(2)}%</td>
+            <td>${money(plan.entry)}</td>
+            <td>${money(plan.target1)}<div class="intraday-stock-meta">T2 ${money(plan.target2)}</div></td>
+            <td class="negative">${money(plan.stopLoss)}</td>
+            <td>${money(plan.moneyNeeded, 0)}<div class="intraday-stock-meta">${plan.quantity.toLocaleString('en-IN')} shares</div></td>
+            <td><button class="btn btn-secondary btn-small plan-view-button" onclick="viewTradePlan(${index})">View plan</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function renderCuratedFallback(reason) {
+    const quoteMap = new Map(intradayScanState.latestCuratedQuotes.map(function (quote) { return [quote.symbol, quote]; }));
+    const stocks = CURATED_INTRADAY_SYMBOLS.map(function (symbol) {
+        const quote = quoteMap.get(symbol);
+        return quote ? pseudoStockFromQuote(quote) : Object.assign({}, STOCKS.find(function (stock) { return stock.symbol === symbol; }));
+    }).filter(Boolean).filter(function (stock) { return stock.price >= 20 && stock.volume >= 100000; })
+      .map(function (stock) { stock.score = scoreIntraday(stock); return stock; })
+      .sort(function (a, b) { return b.score - a.score; }).slice(0, 10).map(buildTradePlan);
+    intradayScanState.mode = 'curated-fallback';
+    renderTradePlans(stocks, {
+        label: 'Curated 28-stock fallback · not a full-NSE scan',
+        subtitle: reason + ' Values marked demo must not be treated as live prices.'
+    });
+    setScanStatus(reason + ' Showing the curated 28-stock fallback only.', 'warning');
+}
+
+async function refreshCuratedQuotes(silent) {
+    if (!window.LiveData || typeof window.LiveData.fetchMarketSnapshot !== 'function') return;
+    const snapshot = await window.LiveData.fetchMarketSnapshot(CURATED_INTRADAY_SYMBOLS, getLiveDataOptions({ yahooFallbackLimit: 3, allowDemo: true }));
+    const realQuotes = (snapshot.quotes || []).filter(function (quote) { return quote.source !== 'Demo fallback'; });
+    intradayScanState.latestCuratedQuotes = snapshot.quotes || [];
+    realQuotes.forEach(function (quote) {
+        const stock = STOCKS.find(function (item) { return item.symbol === quote.symbol; });
+        if (!stock) return;
+        stock.price = quote.price;
+        stock.change = quote.change;
+        stock.percent = quote.percent;
+        stock.open = quote.open;
+        stock.high = quote.high;
+        stock.low = quote.low;
+        stock.volume = quote.volume;
+    });
+    const status = document.getElementById('api-status');
+    if (realQuotes.length) {
+        updateTopMovers();
+        updateWatchlist();
+        updateMarketStatus();
+        if (status) status.innerHTML = '<span class="status-dot"></span><span>' + escapeHtml(snapshot.source) + ' · delayed</span>';
+        if (!silent) showToast('Curated 28-stock prices refreshed (' + realQuotes.length + ' public quotes).', 'success');
+    } else {
+        if (status) status.innerHTML = '<span class="status-dot warning"></span><span>Public data unavailable · demo fallback</span>';
+        if (!silent) showToast('Public quotes are unavailable; keeping clearly labelled fallback data.', 'warning');
+    }
+}
+
+async function runFullMarketScan(manual) {
+    if (intradayScanState.running) {
+        if (manual) showToast('A full-market scan is already running.', 'info');
+        return;
+    }
+    if (!window.NSEUniverse || !window.LiveData || !window.NSEUniverse.getUniverse || !window.LiveData.fetchMarketSnapshot) {
+        renderCuratedFallback('Full scanner files could not be loaded.');
+        setScanProgress(0, 'Scanner unavailable');
+        return;
+    }
+    intradayScanState.running = true;
+    setScanBusy(true);
+    setScanProgress(2, 'Loading NSE universe');
+    setScanStatus('Stage 1 of 2: loading the NSE universe and snapshot quotes…');
+    try {
+        const universe = await window.NSEUniverse.getUniverse(getLiveDataOptions());
+        intradayScanState.universe = universe;
+        updateUniverseBadge(universe);
+        const snapshot = await window.LiveData.fetchMarketSnapshot(universe.symbols, getLiveDataOptions({
+            yahooFallbackLimit: 0,
+            allowDemo: true,
+            onProgress: function (progress) {
+                const completed = progress.total ? Math.round((progress.completed / progress.total) * 62) : 0;
+                setScanProgress(5 + completed, 'Stage 1: quoted ' + progress.completed.toLocaleString('en-IN') + ' of ' + progress.total.toLocaleString('en-IN') + ' NSE symbols');
+            }
+        }));
+        const liveQuotes = (snapshot.quotes || []).filter(function (quote) { return quote.source !== 'Demo fallback'; });
+        const candidates = liveQuotes.map(pseudoStockFromQuote).filter(function (stock) {
+            return stock.volume >= 100000 && stock.price >= 20;
+        }).map(function (stock) {
+            stock.score = scoreIntraday(stock);
+            return stock;
+        }).sort(function (a, b) { return b.score - a.score; });
+
+        // Do not silently call a mostly-demo batch a full-market result.
+        if (liveQuotes.length < 25 || candidates.length < 3) {
+            setScanProgress(100, 'Public full-market snapshot unavailable');
+            renderCuratedFallback('Only ' + liveQuotes.length + ' usable public quote' + (liveQuotes.length === 1 ? '' : 's') + ' returned from ' + (snapshot.source || 'public feeds') + '.');
+            return;
+        }
+
+        const shortlisted = candidates.slice(0, 15);
+        setScanProgress(70, 'Stage 2: calculating RSI, ATR, 20-DMA and average volume for top 15');
+        setScanStatus('Stage 2 of 2: fetching daily history for ' + shortlisted.length + ' liquid candidates…');
+        let historyComplete = 0;
+        const enriched = await mapWithConcurrency(shortlisted, 4, async function (stock) {
+            const history = await window.LiveData.fetchStooqHistory(stock.symbol, getLiveDataOptions({ timeoutMs: 7000 }));
+            historyComplete += 1;
+            setScanProgress(70 + Math.round((historyComplete / shortlisted.length) * 25), 'Stage 2: analysed ' + historyComplete + ' of ' + shortlisted.length + ' shortlisted stocks');
+            return calculateHistoricalMetrics(stock, history);
+        });
+        const plans = enriched.sort(function (a, b) { return b.score - a.score; }).slice(0, 10).map(buildTradePlan);
+        intradayScanState.mode = 'full-market';
+        intradayScanState.lastScanAt = new Date();
+        renderTradePlans(plans, {
+            label: 'Full NSE scan · ' + liveQuotes.length.toLocaleString('en-IN') + ' public quotes · ' + snapshot.source,
+            subtitle: 'Two-stage screen: ' + (universe.source || 'NSE universe') + '. Entries are educational rule-based levels, not advice.'
+        });
+        setScanProgress(100, 'Full-market scan complete · ' + candidates.length + ' liquid candidates screened');
+        setScanStatus('Full-market scan complete. ' + candidates.length + ' stocks passed price and volume filters; ranked plans use public delayed data.', 'live');
+        if (manual) showToast('Full-market scan complete: ' + candidates.length + ' liquid candidates screened.', 'success');
+    } catch (error) {
+        setScanProgress(100, 'Scan unavailable — curated fallback shown');
+        renderCuratedFallback('The public full-market scan could not complete.');
+        if (manual) showToast('Full-market data was unavailable; showing the labelled curated fallback.', 'warning');
+    } finally {
+        intradayScanState.running = false;
+        setScanBusy(false);
+    }
+}
+
+function viewTradePlan(index) {
+    const plan = intradayScanState.plans[Number(index)];
+    if (!plan) return;
+    const modal = document.getElementById('modal');
+    const title = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+    if (!modal || !title || !body) return;
+    title.textContent = plan.symbol + ' · Intraday BUY plan';
+    body.innerHTML = `
+        <p><strong>${escapeHtml(plan.name)}</strong> ranked at ${plan.confidence}% confidence in the ${intradayScanState.mode === 'full-market' ? 'full-market' : 'curated fallback'} rule-based screen.</p>
+        <div class="trade-plan-modal-grid">
+            <div><span>Entry</span><strong>${money(plan.entry)}</strong></div>
+            <div><span>Stop-loss</span><strong class="negative">${money(plan.stopLoss)}</strong></div>
+            <div><span>Target 1 · 1.5R</span><strong class="positive">${money(plan.target1)}</strong></div>
+            <div><span>Target 2 · 3R</span><strong class="positive">${money(plan.target2)}</strong></div>
+            <div><span>Suggested quantity</span><strong>${plan.quantity.toLocaleString('en-IN')} shares</strong></div>
+            <div><span>Total money needed</span><strong>${money(plan.moneyNeeded, 0)}</strong></div>
+        </div>
+        <p><strong>Risk controls:</strong> stop distance ${money(plan.stopDistance)} is the tighter of 0.8% of entry and 0.75 × ATR-14. Quantity limits risk to 1% of the ₹${plan.capital.toLocaleString('en-IN')} capital setting and caps allocation at 25%.</p>
+        <p><strong>Screen reasons:</strong> ${plan.reasons.map(escapeHtml).join(' · ')}.</p>
+        <p class="intraday-disclaimer"><strong>Not SEBI-registered advice:</strong> public data may be delayed by roughly 1–15 minutes. Verify the live price, liquidity and your own risk before any order.</p>`;
+    modal.classList.add('active');
+}
 
 // ============================================
 // INTRADAY SIGNALS
@@ -291,6 +691,7 @@ function initializeDashboard() {
     safeInit('watchlist', initWatchlist);
     safeInit('learningCenter', initLearningCenter);
     safeInit('settings', initSettings);
+    safeInit('fullMarketScanner', initFullMarketScanner);
     safeInit('charts', initCharts);
 
     // ALWAYS hide the loading overlay, even if something failed above
@@ -550,9 +951,10 @@ function updateHeatmap() {
 
 function updateMarketStatus() {
     const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const isMarketOpen = (hours >= 9 && hours < 15) || (hours === 15 && minutes <= 30);
+    // Use Asia/Kolkata rather than the visitor's computer timezone.
+    const marketOpen = window.LiveData && typeof window.LiveData.isMarketOpen === 'function'
+        ? window.LiveData.isMarketOpen(now)
+        : false;
     
     const statusEl = document.getElementById('market-status');
     if (!statusEl) return;
@@ -560,11 +962,11 @@ function updateMarketStatus() {
     const textEl = statusEl.querySelector('span:last-child');
     
     if (dotEl) {
-        dotEl.className = 'status-dot ' + (isMarketOpen ? 'open' : 'closed');
+        dotEl.className = 'status-dot ' + (marketOpen ? 'open' : 'closed');
     }
     
     if (textEl) {
-        textEl.textContent = isMarketOpen ? 'Market: OPEN (9:15 AM - 3:30 PM IST)' : 'Market: CLOSED (Opens at 9:15 AM IST)';
+        textEl.textContent = marketOpen ? 'Market: OPEN (9:15 AM - 3:30 PM IST)' : 'Market: CLOSED (Opens at 9:15 AM IST)';
     }
     
     // Update last updated time
@@ -3008,7 +3410,7 @@ function saveNotificationSettings() {
 }
 
 function loadRefreshSettings() {
-    const refreshInterval = safeStorageGet('refreshInterval') || '30000';
+    const refreshInterval = safeStorageGet('refreshInterval') || '60000';
     const refreshEnabled = safeStorageGet('refreshEnabled') !== 'false';
     
     document.getElementById('refresh-interval').value = refreshInterval;
@@ -3306,9 +3708,10 @@ function startAutoRefresh() {
 
 function refreshAllData() {
     if (CONFIG.debug) console.log('Refreshing all data...');
-    
-    // Simulate data changes
-    simulateMarketDataChanges();
+
+    // The header Refresh button also requests the 28 curated public quotes.
+    // The existing educational widgets stay available if that request fails.
+    if (typeof refreshCuratedQuotes === 'function') refreshCuratedQuotes(true);
     
     // Update all sections
     updateMarketOverview();
@@ -3327,7 +3730,7 @@ function refreshAllData() {
     updateWatchlist();
     updateWatchlistStats();
     
-    showToast('Data refreshed!', 'info');
+    showToast('Dashboard refreshed; curated public prices are updating when available.', 'info');
 }
 
 function simulateMarketDataChanges() {
