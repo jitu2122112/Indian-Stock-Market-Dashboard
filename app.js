@@ -221,42 +221,112 @@ const HEATMAP_DATA = [
 ];
 
 // ============================================
+// SAFE STORAGE HELPERS (localStorage can throw
+// in sandboxed iframes / private mode — never
+// let that break the whole dashboard)
+// ============================================
+function safeStorageGet(key, fallback) {
+    try {
+        if (typeof localStorage === 'undefined') return fallback;
+        const value = localStorage.getItem(key);
+        return value === null ? fallback : value;
+    } catch (e) {
+        return fallback;
+    }
+}
+
+function safeStorageSet(key, value) {
+    try {
+        if (typeof localStorage === 'undefined') return;
+        localStorage.setItem(key, value);
+    } catch (e) {
+        if (CONFIG.debug) console.warn('Storage unavailable:', e);
+    }
+}
+
+function safeStorageClear() {
+    try {
+        if (typeof localStorage === 'undefined') return;
+        localStorage.clear();
+    } catch (e) {
+        if (CONFIG.debug) console.warn('Storage unavailable:', e);
+    }
+}
+
+// ============================================
 // WATCHLIST (Local Storage)
 // ============================================
-let watchlist = JSON.parse(localStorage.getItem('watchlist')) || [];
+let watchlist = [];
+try {
+    watchlist = JSON.parse(safeStorageGet('watchlist', '[]')) || [];
+    if (!Array.isArray(watchlist)) watchlist = [];
+} catch (e) {
+    watchlist = [];
+}
 
 // ============================================
 // INITIALIZATION
 // ============================================
-document.addEventListener('DOMContentLoaded', function() {
+// Run an init step safely — one failing widget must
+// never prevent the rest of the dashboard (or the
+// loading overlay) from working.
+function safeInit(stepName, fn) {
+    try {
+        fn();
+    } catch (err) {
+        console.error('Dashboard init step failed [' + stepName + ']:', err);
+    }
+}
+
+function initializeDashboard() {
     if (CONFIG.debug) console.log('Indian Market Dashboard: Initializing...');
-    
-    // Initialize all components
-    initNavigation();
-    initMarketData();
-    initSignals();
-    initScreener();
-    initAnalysis();
-    initWatchlist();
-    initLearningCenter();
-    initSettings();
-    initCharts();
-    
-    // Hide loading overlay
+
+    // Initialize all components (each isolated so a single
+    // error can't leave the page stuck on "Loading...")
+    safeInit('navigation', initNavigation);
+    safeInit('marketData', initMarketData);
+    safeInit('signals', initSignals);
+    safeInit('screener', initScreener);
+    safeInit('analysis', initAnalysis);
+    safeInit('watchlist', initWatchlist);
+    safeInit('learningCenter', initLearningCenter);
+    safeInit('settings', initSettings);
+    safeInit('charts', initCharts);
+
+    // ALWAYS hide the loading overlay, even if something failed above
     hideLoadingOverlay();
-    
+
     // Start auto-refresh
     if (CONFIG.autoRefresh) {
-        startAutoRefresh();
+        safeInit('autoRefresh', startAutoRefresh);
     }
-    
+
     // Show welcome toast
     setTimeout(() => {
-        showToast('🎉 Welcome to Indian Market Live Dashboard! Start exploring stocks.', 'info');
+        safeInit('welcomeToast', () => {
+            showToast('🎉 Welcome to Indian Market Live Dashboard! Start exploring stocks.', 'info');
+        });
     }, 1000);
-    
+
     if (CONFIG.debug) console.log('Indian Market Dashboard: Loaded successfully');
+
+    // Signal to the inline failsafe in index.html that the app started OK.
+    window.__dashboardReady = true;
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeDashboard);
+} else {
+    // Script loaded after DOM was already parsed
+    initializeDashboard();
+}
+
+// Absolute fallback: never leave the loading overlay up forever,
+// even if something catastrophic happens above.
+window.addEventListener('load', function() {
+    setTimeout(hideLoadingOverlay, 500);
 });
+setTimeout(hideLoadingOverlay, 6000);
 
 // ============================================
 // NAVIGATION
@@ -485,6 +555,7 @@ function updateMarketStatus() {
     const isMarketOpen = (hours >= 9 && hours < 15) || (hours === 15 && minutes <= 30);
     
     const statusEl = document.getElementById('market-status');
+    if (!statusEl) return;
     const dotEl = statusEl.querySelector('.status-dot');
     const textEl = statusEl.querySelector('span:last-child');
     
@@ -570,7 +641,9 @@ function updateSignalHistory() {
     const table = document.getElementById('signals-history-table');
     if (!table) return;
     
-    const history = [...SIGNAL_HISTORY].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 10);
+    // NOTE: history times are display strings ("Yesterday 9:30 AM"), not
+    // parseable dates, so keep stored order instead of sorting by NaN.
+    const history = [...SIGNAL_HISTORY].slice(-10).reverse();
     
     table.innerHTML = history.map(signal => {
         const profitClass = signal.result === 'hit-target' ? 'positive' : signal.result === 'hit-stoploss' ? 'negative' : '';
@@ -890,28 +963,31 @@ function saveScreener() {
 function sortResults(by) {
     const table = document.getElementById('screener-results-table');
     if (!table) return;
-    
-    const rows = Array.from(table.querySelectorAll('tr'));
-    const headerRow = rows.shift();
-    
+
+    // NOTE: the header row lives in <thead>, so every <tr> here is data —
+    // do not shift anything off (that used to delete the first result row).
+    const rows = Array.from(table.querySelectorAll('tr')).filter(r => r.cells.length > 1);
+    if (rows.length === 0) return;
+
+    const colIndex = by === 'name' ? 1 : by === 'price' ? 2 : by === 'change' ? 3 : 0;
+
     rows.sort((a, b) => {
-        const aValue = a.cells[by === 'name' ? 1 : by === 'price' ? 2 : by === 'change' ? 3 : 0].textContent;
-        const bValue = b.cells[by === 'name' ? 1 : by === 'price' ? 2 : by === 'change' ? 3 : 0].textContent;
-        
+        const aValue = (a.cells[colIndex]?.textContent || '').trim();
+        const bValue = (b.cells[colIndex]?.textContent || '').trim();
+
         if (by === 'name') {
             return aValue.localeCompare(bValue);
         } else if (by === 'price' || by === 'change') {
-            const aNum = parseFloat(aValue.replace(/[^0-9.-]/g, ''));
-            const bNum = parseFloat(bValue.replace(/[^0-9.-]/g, ''));
+            const aNum = parseFloat(aValue.replace(/[^0-9.\-]/g, '')) || 0;
+            const bNum = parseFloat(bValue.replace(/[^0-9.\-]/g, '')) || 0;
             return by === 'change' ? bNum - aNum : aNum - bNum;
         }
         return 0;
     });
-    
-    // Rebuild table
-    table.innerHTML = '';
-    if (headerRow) table.appendChild(headerRow);
+
+    // Rebuild table body in sorted order
     rows.forEach(row => table.appendChild(row));
+    showToast('Results sorted!', 'info');
 }
 
 function loadQuickScreen(type) {
@@ -972,16 +1048,68 @@ function initAnalysis() {
     loadStockAnalysis();
 }
 
+// Only a few stocks ship with hand-written indicator/chart data.
+// For every other stock in the dropdown, derive sensible demo
+// values from its live price so Technical Analysis never shows
+// a blank/stale panel.
+function ensureStockMeta(stockSymbol) {
+    const stock = STOCKS.find(s => s.symbol === stockSymbol);
+    if (!stock) return;
+    const price = stock.price;
+
+    if (!INDICATORS[stockSymbol]) {
+        INDICATORS[stockSymbol] = {
+            rsi: stock.rsi || 50,
+            macd: stock.signal === 'sell' ? -5.2 : 6.4,
+            ma50: price * 0.985,
+            ma200: price * 0.965,
+            bb: { upper: price * 1.02, middle: price, lower: price * 0.98 },
+            volume: stock.volume
+        };
+    }
+    if (!SR_LEVELS[stockSymbol]) {
+        SR_LEVELS[stockSymbol] = {
+            current: price,
+            r1: price * 1.015, r2: price * 1.03, r3: price * 1.05,
+            s1: price * 0.985, s2: price * 0.97, s3: price * 0.95
+        };
+    } else {
+        SR_LEVELS[stockSymbol].current = price;
+    }
+    if (!CHART_DATA[stockSymbol]) {
+        const labels = ['9:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '1:00', '1:30', '2:00', '2:30', '3:00'];
+        const prices = [];
+        const volumes = [];
+        let p = price * 0.992;
+        // Deterministic pseudo-random walk seeded by symbol so the
+        // chart is stable between re-renders.
+        let seed = 0;
+        for (let i = 0; i < stockSymbol.length; i++) seed += stockSymbol.charCodeAt(i);
+        const rand = () => {
+            seed = (seed * 9301 + 49297) % 233280;
+            return seed / 233280;
+        };
+        for (let i = 0; i < labels.length; i++) {
+            p = p + (rand() - 0.48) * price * 0.002;
+            prices.push(i === labels.length - 1 ? price : p);
+            volumes.push(Math.floor(stock.volume * (0.05 + rand() * 0.06)));
+        }
+        CHART_DATA[stockSymbol] = { labels, prices, volumes };
+    }
+}
+
 function loadStockAnalysis() {
     const stockSelect = document.getElementById('analysis-stock');
     const selectedStock = stockSelect?.value || 'RELIANCE';
-    
+
+    ensureStockMeta(selectedStock);
     updateStockChart(selectedStock);
     updateIndicators(selectedStock);
     updateRecommendation(selectedStock);
 }
 
 function updateStockChart(stockSymbol) {
+    ensureStockMeta(stockSymbol);
     const stockData = CHART_DATA[stockSymbol];
     if (!stockData) return;
     
@@ -1009,20 +1137,41 @@ function updateStockChart(stockSymbol) {
 
 function updateChart(stockSymbol, stockData) {
     const chartType = document.getElementById('analysis-chart-type')?.value || 'line';
-    const ctx = document.getElementById('analysisChart');
-    
-    if (!ctx) return;
-    
+    const canvas = document.getElementById('analysisChart');
+
+    if (!canvas) return;
+
+    // Chart.js is loaded from a CDN — if it failed (offline page,
+    // blocked CDN, ad-blocker), show a friendly note instead of
+    // throwing and breaking the whole dashboard.
+    if (typeof Chart === 'undefined') {
+        showChartFallback(canvas, 'Chart library failed to load. Check your internet connection and refresh.');
+        return;
+    }
+
     // Destroy existing chart if it exists
     if (window.analysisChart) {
-        window.analysisChart.destroy();
+        try {
+            window.analysisChart.destroy();
+        } catch (e) {
+            if (CONFIG.debug) console.warn('Could not destroy old chart:', e);
+        }
+        window.analysisChart = null;
     }
-    
+
     const labels = stockData.labels;
     const prices = stockData.prices;
-    
+
+    // 'candlestick' needs the chartjs-chart-financial plugin which is
+    // NOT bundled — fall back to a line chart so selecting it never
+    // crashes ("Unknown controller: candlestick").
+    const wantsCandles = chartType === 'candlestick';
+    const hasCandlePlugin = typeof Chart !== 'undefined' &&
+        Chart.registry && (() => { try { return !!Chart.registry.getController('candlestick'); } catch (e) { return false; } })();
+    const effectiveType = (wantsCandles && hasCandlePlugin) ? 'candlestick' : 'line';
+
     let chartConfig = {
-        type: chartType === 'candlestick' ? 'candlestick' : 'line',
+        type: effectiveType,
         data: {
             labels: labels,
             datasets: []
@@ -1035,27 +1184,28 @@ function updateChart(stockSymbol, stockData) {
             },
             scales: {
                 x: { grid: { display: false } },
-                y: { 
+                y: {
                     grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                    ticks: { 
+                    ticks: {
                         callback: function(value) {
-                            return '₹' + value.toFixed(2);
+                            return '₹' + Number(value).toFixed(2);
                         }
                     }
                 }
             }
         }
     };
-    
-    if (chartType === 'candlestick') {
+
+    if (effectiveType === 'candlestick') {
+        const step = Math.max(prices[0] * 0.001, 0.05);
         const candlestickData = prices.map((price, i) => ({
-            t: labels[i],
-            o: price - 5,
-            h: price + 5,
-            l: price - 5,
+            x: labels[i],
+            o: price - step,
+            h: price + step,
+            l: price - step,
             c: price
         }));
-        
+
         chartConfig.data.datasets.push({
             label: 'Price',
             data: candlestickData,
@@ -1070,13 +1220,38 @@ function updateChart(stockSymbol, stockData) {
             label: 'Price',
             data: prices,
             borderColor: '#4361ee',
-            backgroundColor: 'rgba(67, 97, 238, 0.1)',
+            backgroundColor: chartType === 'line' ? 'rgba(67, 97, 238, 0.05)' : 'rgba(67, 97, 238, 0.15)',
             fill: true,
             tension: 0.4
         });
     }
-    
-    window.analysisChart = new Chart(ctx.getContext('2d'), chartConfig);
+
+    try {
+        window.analysisChart = new Chart(canvas.getContext('2d'), chartConfig);
+    } catch (err) {
+        console.error('Failed to render analysis chart:', err);
+        showChartFallback(canvas, 'Could not render this chart. Please try another chart type.');
+    }
+}
+
+// Replaces a <canvas> with a friendly message box when Chart.js
+// is unavailable or a render fails. Never throws.
+function showChartFallback(canvas, message) {
+    try {
+        const wrapper = canvas.parentElement;
+        if (!wrapper) return;
+        let note = wrapper.querySelector('.chart-fallback');
+        if (!note) {
+            note = document.createElement('div');
+            note.className = 'chart-fallback';
+            note.style.cssText = 'padding:32px 16px;text-align:center;color:#64748b;font-size:14px;background:#f1f5f9;border-radius:12px;margin-top:8px;';
+            canvas.style.display = 'none';
+            canvas.after(note);
+        }
+        note.textContent = '📊 ' + message;
+    } catch (e) {
+        console.warn('Chart fallback failed:', e);
+    }
 }
 
 function updateIndicators(stockSymbol) {
@@ -1368,7 +1543,7 @@ function removeFromWatchlist(symbol) {
 }
 
 function saveWatchlist() {
-    localStorage.setItem('watchlist', JSON.stringify(watchlist));
+    safeStorageSet('watchlist', JSON.stringify(watchlist));
 }
 
 function updateWatchlist() {
@@ -2781,10 +2956,10 @@ function initSettings() {
 }
 
 function loadProfileSettings() {
-    const userName = localStorage.getItem('userName') || 'Beginner Trader';
-    const userExperience = localStorage.getItem('userExperience') || 'beginner';
-    const userRisk = localStorage.getItem('userRiskTolerance') || 'medium';
-    const userCapital = localStorage.getItem('userCapital') || '100000';
+    const userName = safeStorageGet('userName') || 'Beginner Trader';
+    const userExperience = safeStorageGet('userExperience') || 'beginner';
+    const userRisk = safeStorageGet('userRiskTolerance') || 'medium';
+    const userCapital = safeStorageGet('userCapital') || '100000';
     
     document.getElementById('user-name').value = userName;
     document.getElementById('user-experience').value = userExperience;
@@ -2798,19 +2973,19 @@ function saveProfileSettings() {
     const userRisk = document.getElementById('user-risk-tolerance')?.value || 'medium';
     const userCapital = document.getElementById('user-capital')?.value || '100000';
     
-    localStorage.setItem('userName', userName);
-    localStorage.setItem('userExperience', userExperience);
-    localStorage.setItem('userRiskTolerance', userRisk);
-    localStorage.setItem('userCapital', userCapital);
+    safeStorageSet('userName', userName);
+    safeStorageSet('userExperience', userExperience);
+    safeStorageSet('userRiskTolerance', userRisk);
+    safeStorageSet('userCapital', userCapital);
     
     showToast('Profile settings saved!', 'success');
 }
 
 function loadNotificationSettings() {
-    const notifyPrice = localStorage.getItem('notifyPrice') !== 'false';
-    const notifySignal = localStorage.getItem('notifySignal') !== 'false';
-    const notifyMarket = localStorage.getItem('notifyMarket') !== 'false';
-    const notifyEducational = localStorage.getItem('notifyEducational') === 'true';
+    const notifyPrice = safeStorageGet('notifyPrice') !== 'false';
+    const notifySignal = safeStorageGet('notifySignal') !== 'false';
+    const notifyMarket = safeStorageGet('notifyMarket') !== 'false';
+    const notifyEducational = safeStorageGet('notifyEducational') === 'true';
     
     document.getElementById('notify-price').checked = notifyPrice;
     document.getElementById('notify-signal').checked = notifySignal;
@@ -2824,17 +2999,17 @@ function saveNotificationSettings() {
     const notifyMarket = document.getElementById('notify-market')?.checked;
     const notifyEducational = document.getElementById('notify-educational')?.checked;
     
-    localStorage.setItem('notifyPrice', notifyPrice);
-    localStorage.setItem('notifySignal', notifySignal);
-    localStorage.setItem('notifyMarket', notifyMarket);
-    localStorage.setItem('notifyEducational', notifyEducational);
+    safeStorageSet('notifyPrice', notifyPrice);
+    safeStorageSet('notifySignal', notifySignal);
+    safeStorageSet('notifyMarket', notifyMarket);
+    safeStorageSet('notifyEducational', notifyEducational);
     
     showToast('Notification settings saved!', 'success');
 }
 
 function loadRefreshSettings() {
-    const refreshInterval = localStorage.getItem('refreshInterval') || '30000';
-    const refreshEnabled = localStorage.getItem('refreshEnabled') !== 'false';
+    const refreshInterval = safeStorageGet('refreshInterval') || '30000';
+    const refreshEnabled = safeStorageGet('refreshEnabled') !== 'false';
     
     document.getElementById('refresh-interval').value = refreshInterval;
     document.getElementById('refresh-enabled').checked = refreshEnabled;
@@ -2847,8 +3022,8 @@ function saveRefreshSettings() {
     const refreshInterval = document.getElementById('refresh-interval')?.value || '30000';
     const refreshEnabled = document.getElementById('refresh-enabled')?.checked;
     
-    localStorage.setItem('refreshInterval', refreshInterval);
-    localStorage.setItem('refreshEnabled', refreshEnabled);
+    safeStorageSet('refreshInterval', refreshInterval);
+    safeStorageSet('refreshEnabled', refreshEnabled);
     
     CONFIG.refreshInterval = parseInt(refreshInterval);
     CONFIG.autoRefresh = refreshEnabled;
@@ -2914,13 +3089,13 @@ function changeTheme() {
         }
     }
     
-    localStorage.setItem('theme', theme);
+    safeStorageSet('theme', theme);
     showToast(`Theme changed to ${theme}!`, 'success');
 }
 
 function resetSettings() {
     if (confirm('Are you sure you want to reset all settings to default?')) {
-        localStorage.clear();
+        safeStorageClear();
         location.reload();
     }
 }
@@ -2933,86 +3108,183 @@ function clearCache() {
 // CHARTS
 // ============================================
 function initCharts() {
-    initNiftyChart();
-    initSectorChart();
-    initHeatmap();
+    // Each chart is independent — one failing must not break the others.
+    safeInit('niftyChart', initNiftyChart);
+    safeInit('sectorChart', initSectorChart);
+    safeInit('heatmap', initHeatmap);
+    safeInit('chartButtons', initChartTimeframeButtons);
+}
+
+// The 1D / 5D / 1M / 3M buttons above the NIFTY chart had no click
+// handler at all — wire them up so they actually switch the chart.
+function initChartTimeframeButtons() {
+    const buttons = document.querySelectorAll('.chart-btn[data-timeframe]');
+    if (!buttons.length) return;
+    buttons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            buttons.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            renderNiftySeries(this.getAttribute('data-timeframe') || '1D');
+        });
+    });
+}
+
+// Demo intraday/daily series per timeframe, anchored to the live NIFTY price.
+function getNiftySeries(timeframe) {
+    const base = MARKET_DATA.nifty50.price;
+    let labels, count, step;
+    if (timeframe === '5D') {
+        labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        count = 5; step = 0.004;
+    } else if (timeframe === '1M') {
+        count = 22; step = 0.006;
+        labels = Array.from({ length: count }, (_, i) => 'D' + (i + 1));
+    } else if (timeframe === '3M') {
+        count = 12; step = 0.012;
+        labels = Array.from({ length: count }, (_, i) => 'W' + (i + 1));
+    } else {
+        return {
+            labels: ['9:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '1:00', '1:30', '2:00', '2:30', '3:00'],
+            prices: [19780, 19800, 19790, 19820, 19810, 19840, 19835, 19850, 19845, 19860, 19855, base]
+        };
+    }
+    let seed = timeframe.length * 7919 + 13;
+    const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    let p = base * (1 - step * count * 0.35);
+    const prices = [];
+    for (let i = 0; i < count; i++) {
+        p = p + (rand() - 0.46) * base * step;
+        prices.push(i === count - 1 ? base : p);
+    }
+    return { labels, prices };
+}
+
+function renderNiftySeries(timeframe) {
+    if (typeof Chart === 'undefined' || !window.niftyChart) {
+        initNiftyChart();
+        return;
+    }
+    try {
+        const series = getNiftySeries(timeframe);
+        window.niftyChart.data.labels = series.labels;
+        window.niftyChart.data.datasets[0].data = series.prices;
+        window.niftyChart.update();
+    } catch (err) {
+        console.error('Failed to switch chart timeframe:', err);
+    }
+}
+
+// NOTE: this function was missing entirely, which crashed startup
+// (ReferenceError) and left the page stuck on "Loading..." forever.
+function initHeatmap() {
+    updateHeatmap();
 }
 
 function initNiftyChart() {
-    const ctx = document.getElementById('niftyChart');
-    if (!ctx) return;
-    
+    const canvas = document.getElementById('niftyChart');
+    if (!canvas) return;
+
+    if (typeof Chart === 'undefined') {
+        showChartFallback(canvas, 'Chart library failed to load. Check your internet connection and refresh.');
+        return;
+    }
+
     const labels = ['9:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '1:00', '1:30', '2:00', '2:30', '3:00'];
     const prices = [19780, 19800, 19790, 19820, 19810, 19840, 19835, 19850, 19845, 19860, 19855, 19850.25];
-    
-    window.niftyChart = new Chart(ctx.getContext('2d'), {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'NIFTY 50',
-                data: prices,
-                borderColor: '#4361ee',
-                backgroundColor: 'rgba(67, 97, 238, 0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
+
+    if (window.niftyChart) {
+        try { window.niftyChart.destroy(); } catch (e) { /* ignore */ }
+        window.niftyChart = null;
+    }
+
+    try {
+        window.niftyChart = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'NIFTY 50',
+                    data: prices,
+                    borderColor: '#4361ee',
+                    backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
             },
-            scales: {
-                x: { grid: { display: false } },
-                y: {
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                    ticks: {
-                        callback: function(value) {
-                            return '₹' + value.toFixed(2);
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: {
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + Number(value).toFixed(2);
+                            }
                         }
                     }
                 }
             }
-        }
-    });
+        });
+    } catch (err) {
+        console.error('Failed to render NIFTY chart:', err);
+        showChartFallback(canvas, 'Could not render this chart.');
+    }
 }
 
 function initSectorChart() {
-    const ctx = document.getElementById('sectorChart');
-    if (!ctx) return;
-    
-    window.sectorChart = new Chart(ctx.getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: SECTOR_DATA.labels,
-            datasets: [{
-                label: 'Sector Performance (%)',
-                data: SECTOR_DATA.values,
-                backgroundColor: SECTOR_DATA.colors,
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
+    const canvas = document.getElementById('sectorChart');
+    if (!canvas) return;
+
+    if (typeof Chart === 'undefined') {
+        showChartFallback(canvas, 'Chart library failed to load. Check your internet connection and refresh.');
+        return;
+    }
+
+    if (window.sectorChart) {
+        try { window.sectorChart.destroy(); } catch (e) { /* ignore */ }
+        window.sectorChart = null;
+    }
+
+    try {
+        window.sectorChart = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: SECTOR_DATA.labels,
+                datasets: [{
+                    label: 'Sector Performance (%)',
+                    data: SECTOR_DATA.values,
+                    backgroundColor: SECTOR_DATA.colors,
+                    borderRadius: 4
+                }]
             },
-            scales: {
-                x: { grid: { display: false } },
-                y: {
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                    ticks: {
-                        callback: function(value) {
-                            return value + '%';
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: {
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
                         }
                     }
                 }
             }
-        }
-    });
+        });
+    } catch (err) {
+        console.error('Failed to render sector chart:', err);
+        showChartFallback(canvas, 'Could not render this chart.');
+    }
 }
 
 // ============================================
@@ -3110,12 +3382,14 @@ function closeModal() {
     if (modal) modal.classList.remove('active');
 }
 
-window.onclick = function(event) {
+// NOTE: use addEventListener instead of `window.onclick = ...` so we
+// never clobber other click handlers (e.g. the loading failsafe).
+window.addEventListener('click', function(event) {
     const modal = document.getElementById('modal');
-    if (event.target == modal) {
+    if (modal && event.target === modal) {
         modal.classList.remove('active');
     }
-};
+});
 
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
@@ -3143,7 +3417,104 @@ function hideLoadingOverlay() {
     const overlay = document.getElementById('loading-overlay');
     if (overlay) {
         overlay.style.display = 'none';
+        overlay.classList.add('hidden');
     }
+}
+
+// ============================================
+// SIDEBAR QUICK ACTIONS + FAQ
+// (Called from index.html onclick handlers — these
+// functions were missing, which threw ReferenceError
+// whenever the buttons were clicked.)
+// ============================================
+function showHotStocks() {
+    const hot = [...STOCKS]
+        .sort((a, b) => Math.abs(b.percent) - Math.abs(a.percent))
+        .slice(0, 8);
+
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+    if (!modal || !modalTitle || !modalBody) return;
+
+    modalTitle.textContent = '🔥 Hot Stocks Right Now';
+    modalBody.innerHTML = `
+        <p>Biggest movers by absolute % change. Click <strong>+ Watch</strong> to track any of them.</p>
+        <div class="stocks-table">
+            <table>
+                <thead>
+                    <tr><th>Stock</th><th>Price</th><th>Change</th><th>Signal</th><th></th></tr>
+                </thead>
+                <tbody>
+                    ${hot.map(s => `
+                        <tr>
+                            <td><strong>${s.symbol}</strong><br><small>${s.name}</small></td>
+                            <td>₹${s.price.toFixed(2)}</td>
+                            <td class="${s.change >= 0 ? 'positive' : 'negative'}">
+                                ${s.change >= 0 ? '+' : ''}${s.percent.toFixed(2)}%
+                            </td>
+                            <td>${s.signal.toUpperCase()}</td>
+                            <td><button class="btn btn-small" onclick="addToWatchlistFromScreener('${s.symbol}'); closeModal();">+ Watch</button></td>
+                        </tr>`).join('')}
+                </tbody>
+            </table>
+        </div>`;
+    modal.classList.add('active');
+}
+
+function showMarketNews() {
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+    if (!modal || !modalTitle || !modalBody) return;
+
+    const gainers = [...STOCKS].filter(s => s.change > 0).sort((a, b) => b.percent - a.percent).slice(0, 3);
+    const losers = [...STOCKS].filter(s => s.change < 0).sort((a, b) => a.percent - b.percent).slice(0, 3);
+    const nifty = MARKET_DATA.nifty50;
+
+    modalTitle.textContent = '📰 Market News & Highlights';
+    modalBody.innerHTML = `
+        <div class="tutorial-content">
+            <div class="tutorial-section">
+                <h4>📊 Market Snapshot</h4>
+                <p>NIFTY 50 is trading at <strong>${formatPrice(nifty.price)}</strong>
+                (${formatChange(nifty.change, nifty.percent)}).
+                Advances: <strong>${MARKET_STATS.advances.toLocaleString('en-IN')}</strong> |
+                Declines: <strong>${MARKET_STATS.declines.toLocaleString('en-IN')}</strong>.</p>
+            </div>
+            <div class="tutorial-section">
+                <h4>🚀 Buzzing Stocks (Gainers)</h4>
+                <ul>
+                    ${gainers.map(s => `<li><strong>${s.symbol}</strong> up ${s.percent.toFixed(2)}% at ₹${s.price.toFixed(2)} — ${s.name}</li>`).join('')}
+                </ul>
+            </div>
+            <div class="tutorial-section">
+                <h4>📉 Under Pressure (Losers)</h4>
+                <ul>
+                    ${losers.map(s => `<li><strong>${s.symbol}</strong> down ${Math.abs(s.percent).toFixed(2)}% at ₹${s.price.toFixed(2)} — ${s.name}</li>`).join('')}
+                </ul>
+            </div>
+            <div class="tutorial-section">
+                <h4>💰 Institutional Flows</h4>
+                <p>FII net: <strong>₹${MARKET_STATS.fii.net} Cr</strong> |
+                DII net: <strong>₹${MARKET_STATS.dii.net} Cr</strong></p>
+            </div>
+            <div class="tutorial-note">
+                <p><strong>💡 Note:</strong> This dashboard currently uses demo data.
+                Connect a market-data API in <strong>Settings → Data Source</strong> for live news and prices.</p>
+            </div>
+        </div>`;
+    modal.classList.add('active');
+}
+
+function toggleFAQ(element) {
+    if (!element) return;
+    const item = element.closest('.faq-item');
+    if (!item) return;
+    const wasActive = item.classList.contains('active');
+    // Accordion behaviour: close others, toggle this one
+    document.querySelectorAll('.faq-item.active').forEach(el => el.classList.remove('active'));
+    if (!wasActive) item.classList.add('active');
 }
 
 // ============================================
