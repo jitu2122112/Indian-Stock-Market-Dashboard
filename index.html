@@ -7,9 +7,17 @@
     <meta name="description" content="Real-time Indian stock market dashboard with live prices, intraday trading signals, entry/exit points, stop loss, and beginner guidance">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0"></script>
+    <!-- Chart.js (pinned version + backup CDN). The dashboard works even if
+         both fail — charts show a friendly note instead of breaking the page. -->
+    <script>
+        function loadChartFallback(el) {
+            el.onerror = null; // prevent loops
+            var s = document.createElement('script');
+            s.src = 'https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js';
+            document.head.appendChild(s);
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" onerror="loadChartFallback(this)"></script>
 </head>
 <body>
     <div class="app-container">
@@ -1632,5 +1640,42 @@
     </div>
 
     <script src="app.js"></script>
+    <script>
+        // FAILSAFE: the loading overlay must NEVER stick forever, even if
+        // app.js fails to download, throws, or a CDN hangs. This tiny inline
+        // script has zero dependencies, so it always runs.
+        (function () {
+            function forceHideLoading() {
+                var overlay = document.getElementById('loading-overlay');
+                if (overlay) {
+                    overlay.style.display = 'none';
+                    overlay.classList.add('hidden');
+                }
+            }
+            // Normal case: app.js hides it faster; this is just a backstop.
+            setTimeout(forceHideLoading, 4000);
+            window.addEventListener('load', function () {
+                setTimeout(forceHideLoading, 500);
+            });
+            // If the main app never started (e.g. app.js blocked), tell the
+            // user instead of leaving a dead page with "Loading..." labels.
+            setTimeout(function () {
+                if (!window.__dashboardReady) {
+                    forceHideLoading();
+                    var toast = document.getElementById('toast');
+                    if (toast) {
+                        toast.textContent = '⚠️ App scripts failed to load. Check your connection and refresh.';
+                        toast.className = 'toast warning show';
+                    }
+                    console.error('Dashboard failsafe: app.js did not initialize in time.');
+                }
+            }, 8000);
+        })();
+    </script>
+    <noscript>
+        <div style="position:fixed;top:0;left:0;right:0;padding:16px;background:#fef3c7;color:#92400e;text-align:center;z-index:9999;font-family:sans-serif;">
+            ⚠️ This dashboard needs JavaScript enabled. Please enable JavaScript and reload the page.
+        </div>
+    </noscript>
 </body>
 </html>
