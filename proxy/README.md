@@ -85,22 +85,49 @@ Then click **🔌 Connect to Dhan**. Leave the field blank to attempt direct
 calls (which will work only if you run your own reverse proxy locally, or if
 Dhan starts sending CORS headers).
 
-The value is stored in this browser's `localStorage` alongside your Client ID
-and Access Token, under the same key the page already uses.
+The value is stored in this browser's `localStorage` alongside your Client ID,
+Access Token and Proxy token, under the same key the page already uses.
 
 ## 4. Optional: require a shared secret
 
 The Origin check only stops **browsers**. Anything that can guess your Worker
-URL (`curl`, another script) can still use it. To lock that down:
+URL can set an allowed `Origin` header itself (`curl`, another script) and use
+it. To lock that down:
 
 ```bash
 wrangler secret put ALLOW_TOKENS
 # paste a long random string, e.g. the output of: openssl rand -hex 24
 ```
 
-Then send it from the page as an `x-proxy-token` request header. Until you set
-`ALLOW_TOKENS`, the check is skipped and the Worker relies on the Origin
-allowlist alone.
+Then paste **that same string** into the **Proxy token** field beside API proxy
+in the **🔑 Dhan Account** card. The page sends it as an `x-proxy-token` request
+header on every call it makes to your proxy — and only there. It is never
+attached to a direct `api.dhan.co` request.
+
+Until you set `ALLOW_TOKENS`, the check is skipped and the Worker relies on the
+Origin allowlist alone, so leave the Proxy token field blank.
+
+A `401 {"status": "unauthorized"}` from the Worker means the two values do not
+match. Re-run `wrangler secret put ALLOW_TOKENS`, re-paste into the field, and
+click **🔌 Connect to Dhan** again. If you decided not to use a secret at all,
+clear the secret instead — otherwise every request from the page is rejected:
+
+```bash
+wrangler secret delete ALLOW_TOKENS
+```
+
+To confirm from the command line (the Origin header is required too — the
+allowlist is checked before the token):
+
+```bash
+curl -H "Origin: https://jitu2122112.github.io" \
+     -H "x-proxy-token: <your-secret>" \
+     https://dhan-cors-proxy.<your-subdomain>.workers.dev/healthz
+```
+
+`{"status": "ok", ..., "tokenRequired": true}` means both checks passed. The
+`tokenRequired` flag in that response tells you whether the Worker currently
+expects a token at all.
 
 ---
 
@@ -137,5 +164,7 @@ allowlist alone.
 | `dhan-cors-worker.js` | The Cloudflare Worker: CORS headers, Origin allowlist, optional token check, request forwarding. |
 | `README.md` | This document. |
 
-Client-side wiring lives in `../dhan-live.html` (the **API proxy** field) and
-`../auto-trading/brokers/dhan-broker.js` (`proxyUrl` config → `baseUrl`).
+Client-side wiring lives in `../dhan-live.html` (the **API proxy** and
+**Proxy token** fields) and `../auto-trading/brokers/dhan-broker.js`
+(`proxyUrl` config → `baseUrl`, `proxyToken` config → `x-proxy-token` header,
+sent only when a proxy URL is set).
