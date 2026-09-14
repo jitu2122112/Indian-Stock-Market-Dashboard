@@ -22,7 +22,19 @@ class DhanBroker extends DhanBrokerBase {
         this.name = 'DHAN';
         this.clientId = config.clientId || config.DHAN_CLIENT_ID;
         this.accessToken = config.accessToken || config.DHAN_ACCESS_TOKEN;
-        this.baseUrl = 'https://api.dhan.co/v2';
+
+        // Optional CORS proxy (see proxy/README.md). Browsers block a static
+        // page from calling api.dhan.co directly because the API sends no
+        // Access-Control-Allow-Origin header. When a proxy URL is supplied we
+        // send requests there instead; the proxy forwards them to
+        // https://api.dhan.co/v2/... and adds the CORS headers.
+        // Accepts either 'https://host' or 'https://host/v2' — the Worker
+        // prepends /v2 when the path is not already versioned.
+        this.directUrl = 'https://api.dhan.co/v2';
+        this.proxyUrl = String(config.proxyUrl || config.DHAN_PROXY_URL || '').trim().replace(/\/+$/, '');
+        this.usingProxy = !!this.proxyUrl;
+        this.baseUrl = this.usingProxy ? this.proxyUrl : this.directUrl;
+
         this.isConnected = false;
     }
 
@@ -35,7 +47,7 @@ class DhanBroker extends DhanBrokerBase {
         try {
             const funds = await this.getFunds();
             this.isConnected = true;
-            console.log('[DhanBroker] Connected successfully');
+            console.log(`[DhanBroker] Connected successfully (${this.usingProxy ? 'via proxy ' + this.proxyUrl : 'direct to api.dhan.co'})`);
             return { success: true, message: 'Connected to Dhan', funds };
         } catch (e) {
             throw new Error(`Dhan connection failed: ${e.message}`);
