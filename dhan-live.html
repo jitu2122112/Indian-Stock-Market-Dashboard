@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dhan Live - Auto Trading Dashboard</title>
+<meta name="description" content="Live Dhan trading dashboard: connect your Dhan account, watch live positions and orders, place manual orders, and run the auto-trading engine in paper or live mode.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --primary: #4361ee;
+    --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --green: #10b981; --green-dark: #059669; --green-soft: #ecfdf5; --green-border: #a7f3d0;
+    --red: #ef4444; --red-dark: #dc2626; --red-soft: #fef2f2; --red-border: #fecaca;
+    --amber: #f59e0b; --amber-soft: #fffbeb; --amber-border: #fde68a;
+    --bg: #f4f6fb; --card: #ffffff; --border: #e5e7eb;
+    --text: #111827; --muted: #6b7280; --light: #f9fafb;
+    --shadow: 0 2px 12px rgba(17, 24, 39, 0.06);
+}
+body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+
+/* ===== HEADER ===== */
+.header { background: var(--gradient); color: #fff; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+.header-left { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; }
+.logo-icon { font-size: 24px; }
+.logo-sub { font-size: 11px; font-weight: 500; opacity: .85; display: block; letter-spacing: .4px; }
+.header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pill { display: inline-flex; align-items: center; gap: 7px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.25); padding: 6px 13px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; display: inline-block; }
+.dot.open { background: #34d399; box-shadow: 0 0 8px rgba(52,211,153,.9); }
+.dot.closed { background: #f87171; }
+#clock { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* ===== LAYOUT ===== */
+.container { max-width: 1440px; margin: 0 auto; padding: 20px; }
+.grid-main { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 18px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+@media (max-width: 1024px) { .grid-main { grid-template-columns: 1fr; } }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: linear-gradient(180deg, #fff, #fafbff); }
+.card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card-body { padding: 16px 18px; }
+.card-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+
+/* ===== STAT CARDS ===== */
+.stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 18px; }
+@media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); }
+.stat-label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; }
+.stat-value { font-size: 20px; font-weight: 800; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.stat-value.positive { color: var(--green-dark); }
+.stat-value.negative { color: var(--red-dark); }
+
+/* ===== BUTTONS ===== */
+.btn { border: none; border-radius: 10px; padding: 10px 16px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-family: inherit; transition: filter .15s, transform .05s; }
+.btn:hover { filter: brightness(1.06); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-success { background: var(--green); color: #fff; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-warning { background: var(--amber); color: #fff; }
+.btn-secondary { background: var(--light); color: var(--text); border: 1px solid var(--border); }
+.btn-small { padding: 7px 12px; font-size: 12px; border-radius: 8px; }
+.btn-white { background: rgba(255,255,255,.92); color: #4338ca; }
+
+/* ===== FORMS ===== */
+.form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.form-group { margin-bottom: 12px; flex: 1; min-width: 140px; }
+.form-group label { display: block; font-weight: 600; font-size: 12px; margin-bottom: 5px; color: #374151; }
+.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 13.5px; font-family: inherit; background: #fff; }
+.form-group input:focus, .form-group select:focus { outline: 2px solid rgba(67,97,238,.35); border-color: var(--primary); }
+.form-group small { display: block; color: var(--muted); font-size: 10.5px; margin-top: 4px; line-height: 1.4; }
+.checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #374151; }
+.checkbox-row input { width: 15px; height: 15px; accent-color: var(--primary); }
+.strategy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+@media (max-width: 520px) { .strategy-grid { grid-template-columns: 1fr; } }
+
+/* ===== CONNECTION / BADGES ===== */
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 700; letter-spacing: .3px; }
+.badge-live { background: var(--green-soft); color: #065f46; border: 1px solid var(--green-border); }
+.badge-paper { background: var(--amber-soft); color: #92400e; border: 1px solid var(--amber-border); }
+.badge-off { background: #f3f4f6; color: #6b7280; border: 1px solid var(--border); }
+.alert { padding: 12px 14px; border-radius: 10px; font-size: 12.5px; line-height: 1.55; margin-bottom: 14px; display: none; }
+.alert.show { display: block; }
+.alert-error { background: var(--red-soft); color: #991b1b; border: 1px solid var(--red-border); }
+.alert-warn { background: var(--amber-soft); color: #92400e; border: 1px solid var(--amber-border); }
+.alert-info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+
+/* ===== TABLES ===== */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th { text-align: left; padding: 9px 10px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); background: var(--light); border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 9px 10px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; font-variant-numeric: tabular-nums; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafbff; }
+.pos { color: var(--green-dark); font-weight: 700; }
+.neg { color: var(--red-dark); font-weight: 700; }
+.sym { font-weight: 700; }
+.empty { text-align: center; color: var(--muted); padding: 26px 10px !important; font-size: 12.5px; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700; }
+.tag-intraday { background: #eff6ff; color: #1d4ed8; }
+.tag-cnc { background: #f5f3ff; color: #6d28d9; }
+.tag-buy { background: var(--green-soft); color: #065f46; }
+.tag-sell { background: var(--red-soft); color: #991b1b; }
+.tag-status { background: #f3f4f6; color: #374151; }
+.tag-status.complete { background: var(--green-soft); color: #065f46; }
+.tag-status.cancelled, .tag-status.rejected { background: var(--red-soft); color: #991b1b; }
+.tag-status.open, .tag-status.pending { background: #fef9c3; color: #854d0e; }
+
+/* ===== SIGNALS / WATCHLIST ===== */
+.sig { display: inline-block; padding: 2.5px 9px; border-radius: 12px; font-size: 10.5px; font-weight: 800; letter-spacing: .4px; }
+.sig-buy { background: var(--green-soft); color: #065f46; border: 1px solid var(--green-border); }
+.sig-sell { background: var(--red-soft); color: #991b1b; border: 1px solid var(--red-border); }
+.sig-none { background: #f3f4f6; color: #9ca3af; }
+.trend-up { color: var(--green-dark); font-weight: 800; }
+.trend-down { color: var(--red-dark); font-weight: 800; }
+.trend-flat { color: var(--muted); }
+
+/* ===== LOG TERMINAL ===== */
+.log-box { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 12px 14px; max-height: 300px; overflow-y: auto; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px; line-height: 1.65; }
+.log-entry { padding: 1px 0; border-bottom: 1px solid rgba(148,163,184,.08); word-break: break-word; }
+.log-time { color: #64748b; margin-right: 8px; }
+.log-info { color: #e2e8f0; }
+.log-warn { color: #fbbf24; }
+.log-error { color: #f87171; }
+.log-debug { color: #94a3b8; }
+
+/* ===== TOASTS ===== */
+#toast-container { position: fixed; top: 70px; right: 18px; z-index: 100; display: flex; flex-direction: column; gap: 10px; max-width: 360px; }
+.toast { background: #111827; color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 12.5px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.25); display: flex; gap: 10px; align-items: flex-start; animation: slideIn .25s ease; border-left: 4px solid var(--primary); }
+.toast-success { border-left-color: var(--green); }
+.toast-error { border-left-color: var(--red); }
+.toast-warn { border-left-color: var(--amber); }
+@keyframes slideIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+.toast.hide { opacity: 0; transition: opacity .3s; }
+
+/* ===== FOOTER ===== */
+.footer { max-width: 1440px; margin: 26px auto 30px; padding: 0 20px; font-size: 11.5px; color: var(--muted); line-height: 1.7; }
+.footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.footer a:hover { text-decoration: underline; }
+.footer .disclaimer { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 12px; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="header">
+    <div class="header-left">
+        <div class="logo">
+            <span class="logo-icon">🇮🇳</span>
+            <div>
+                <span>Dhan Live</span>
+                <span class="logo-sub">LIVE POSITIONS · ORDERS · AUTO TRADING</span>
+            </div>
+        </div>
+        <span class="pill"><span class="dot" id="market-dot"></span><span id="market-status">Market: checking…</span></span>
+        <span class="pill">🕒 <span id="clock">--:--:--</span> IST</span>
+    </div>
+    <div class="header-right">
+        <span class="pill" id="data-source">📡 Connecting…</span>
+        <button class="btn btn-white btn-small" id="btn-refresh" onclick="refreshAll()">🔄 Refresh</button>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- ===== ALERTS ===== -->
+    <div class="alert alert-error" id="alert-error"></div>
+    <div class="alert alert-warn" id="alert-warn"></div>
+
+    <!-- ===== STATS ===== -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Available Funds</div>
+            <div class="stat-value" id="stat-available">—</div>
+            <div class="stat-sub" id="stat-available-sub">funds</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Used Margin</div>
+            <div class="stat-value" id="stat-used">—</div>
+            <div class="stat-sub">blocked by positions</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Funds</div>
+            <div class="stat-value" id="stat-total">—</div>
+            <div class="stat-sub">available + used</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Day P&amp;L</div>
+            <div class="stat-value" id="stat-daypnl">—</div>
+            <div class="stat-sub">realized + unrealized</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Open Positions</div>
+            <div class="stat-value" id="stat-positions">0</div>
+            <div class="stat-sub" id="stat-positions-sub">current</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Trades Today</div>
+            <div class="stat-value" id="stat-trades">0</div>
+            <div class="stat-sub">orders executed</div>
+        </div>
+    </div>
+
+    <div class="grid-main">
+        <!-- ===== LEFT COLUMN ===== -->
+        <div class="col">
+
+            <!-- DHAN CONNECTION -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🔑 Dhan Account</div>
+                    <span class="badge badge-paper" id="conn-badge">⚪ Paper mode</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 0 1 240px;">
+                            <label for="dh-client-id">Dhan Client ID</label>
+                            <input type="text" id="dh-client-id" placeholder="e.g. 1000000001" autocomplete="off">
+                            <small>From dhan.co → Profile → DhanHQ API</small>
+                        </div>
+                        <div class="form-group" style="flex: 1; min-width: 220px;">
+                            <label for="dh-access-token">Dhan Access Token</label>
+                            <input type="password" id="dh-access-token" placeholder="••••••••••••" autocomplete="off">
+                            <small>JWT token, expires daily. Stored only in this browser (localStorage) and sent only to api.dhan.co.</small>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                        <button class="btn btn-success" id="btn-connect" onclick="connectDhan()">🔌 Connect to Dhan</button>
+                        <button class="btn btn-secondary" id="btn-disconnect" onclick="disconnectDhan()" disabled>↩ Back to Paper Mode</button>
+                        <span class="card-note" id="conn-hint">Paper mode: simulated fills against live public prices. Connect Dhan for real positions &amp; orders.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POSITIONS -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📈 Open Positions</div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-secondary btn-small" onclick="refreshAccount()">⟳</button>
+                        <button class="btn btn-warning btn-small" onclick="squareOffAll()">⛔ Square Off All</button>
+                    </div>
+                </div>
+                <div class="card-body" style="padding: 0;">
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Symbol</th><th>Qty</th><th>Avg Price</th><th>LTP</th><th>P&amp;L ₹</th><th>P&amp;L %</th><th>Product</th><th></th></tr>
+                            </thead>
+                            <tbody id="positions-body">
+                                <tr><td colspan="8" class="empty">Loading positions…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ORDERS -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🧾 Orders (Today)</div>
+                    <button class="btn btn-secondary btn-small" onclick="refreshAccount()">⟳</button>
+                </div>
+                <div class="card-body" style="padding: 0;">
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Order ID</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Price ₹</th><th>Type</th><th>Status</th><th>Time</th><th></th></tr>
+                            </thead>
+                            <tbody id="orders-body">
+                                <tr><td colspan="9" class="empty">Loading orders…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MANUAL ORDER -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">✍️ Manual Order</div>
+                    <span class="card-note" id="manual-mode-note">paper mode</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 0 1 190px;">
+                            <label for="mo-symbol">Symbol</label>
+                            <input type="text" id="mo-symbol" list="symbols-list" placeholder="RELIANCE" autocomplete="off" style="text-transform:uppercase;">
+                            <datalist id="symbols-list"></datalist>
+                        </div>
+                        <div class="form-group" style="flex: 0 1 150px;">
+                            <label>Side</label>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="btn btn-success" id="side-buy" onclick="setSide('BUY')">BUY</button>
+                                <button type="button" class="btn btn-danger" id="side-sell" onclick="setSide('SELL')" style="background:#f3f4f6;color:#111827;border:1px solid #e5e7eb;">SELL</button>
+                            </div>
+                        </div>
+                        <div class="form-group" style="flex: 0 1 110px;">
+                            <label for="mo-qty">Quantity</label>
+                            <input type="number" id="mo-qty" min="1" step="1" value="1">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 0 1 150px;">
+                            <label for="mo-product">Product</label>
+                            <select id="mo-product">
+                                <option value="INTRADAY">INTRADAY</option>
+                                <option value="CNC">CNC (Delivery)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 0 1 150px;">
+                            <label for="mo-type">Order Type</label>
+                            <select id="mo-type" onchange="togglePriceField()">
+                                <option value="MARKET">MARKET</option>
+                                <option value="LIMIT">LIMIT</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="mo-price-group" style="flex: 0 1 150px; display:none;">
+                            <label for="mo-price">Limit Price ₹</label>
+                            <input type="number" id="mo-price" min="0" step="0.05" placeholder="0.00">
+                        </div>
+                        <div class="form-group" style="flex: 1; display:flex; align-items:flex-end;">
+                            <button class="btn btn-primary" id="btn-place" onclick="placeManualOrder()" style="width:100%;">📤 Place Order</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== RIGHT COLUMN ===== -->
+        <div class="col">
+
+            <!-- AUTO TRADING -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🤖 Auto Trading Engine</div>
+                    <span class="badge badge-paper" id="engine-badge">⏸ Stopped</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 0 1 130px;">
+                            <label for="at-mode">Mode</label>
+                            <select id="at-mode" onchange="onModeChange()">
+                                <option value="PAPER">PAPER (safe)</option>
+                                <option value="LIVE">LIVE (real)</option>
+                            </select>
+                            <small id="at-mode-note">LIVE requires a connected Dhan account.</small>
+                        </div>
+                        <div class="form-group" style="flex: 0 1 130px;">
+                            <label for="at-scan">Scan every</label>
+                            <select id="at-scan">
+                                <option value="15000">15 sec</option>
+                                <option value="30000" selected>30 sec</option>
+                                <option value="60000">60 sec</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Strategies</label>
+                            <div class="strategy-grid">
+                                <label class="checkbox-row"><input type="checkbox" class="at-strategy" value="EMA_CROSSOVER" checked> EMA Cross</label>
+                                <label class="checkbox-row"><input type="checkbox" class="at-strategy" value="RSI_REVERSAL" checked> RSI Reversal</label>
+                                <label class="checkbox-row"><input type="checkbox" class="at-strategy" value="BREAKOUT"> Breakout</label>
+                                <label class="checkbox-row"><input type="checkbox" class="at-strategy" value="SUPERTREND"> Supertrend</label>
+                                <label class="checkbox-row"><input type="checkbox" class="at-strategy" value="VWAP_RSI"> VWAP + RSI</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 0 1 120px;">
+                            <label for="at-capital">Capital ₹</label>
+                            <input type="number" id="at-capital" min="10000" step="10000" value="100000">
+                        </div>
+                        <div class="form-group" style="flex: 0 1 110px;">
+                            <label for="at-risk">Risk / trade %</label>
+                            <input type="number" id="at-risk" min="0.25" max="5" step="0.25" value="1">
+                        </div>
+                        <div class="form-group" style="flex: 0 1 110px;">
+                            <label for="at-maxpos">Max positions</label>
+                            <input type="number" id="at-maxpos" min="1" max="10" step="1" value="3">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label for="at-rr">Min risk : reward</label>
+                            <select id="at-rr">
+                                <option value="1.5">1 : 1.5</option>
+                                <option value="2" selected>1 : 2</option>
+                                <option value="3">1 : 3</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row" style="align-items:center;">
+                        <label class="checkbox-row" style="flex: 0 0 auto;"><input type="checkbox" id="at-trailing" checked> Trailing stop-loss</label>
+                        <label class="checkbox-row" style="flex: 0 0 auto;"><input type="checkbox" id="at-squareonstop"> Square off on stop</label>
+                        <div style="flex:1;"></div>
+                        <button class="btn btn-success" id="btn-start" onclick="startEngine()">▶ Start Engine</button>
+                        <button class="btn btn-danger" id="btn-stop" onclick="stopEngine()" disabled>⏹ Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOGS -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"> Activity Log</div>
+                    <button class="btn btn-secondary btn-small" onclick="clearLogs()">🧹 Clear</button>
+                </div>
+                <div class="card-body">
+                    <div class="log-box" id="log-box"></div>
+                </div>
+            </div>
+
+            <!-- LIVE WATCHLIST -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📡 Live Market Watchlist</div>
+                    <span class="card-note" id="watchlist-note">public delayed prices</span>
+                </div>
+                <div class="card-body" style="padding: 0;">
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Symbol</th><th>LTP</th><th>Chg %</th><th>Volume</th><th>RSI (intraday)</th><th>Signal</th></tr>
+                            </thead>
+                            <tbody id="watchlist-body">
+                                <tr><td colspan="6" class="empty">Loading live quotes…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+    <div class="disclaimer">
+        <strong>⚠️ Risk &amp; safety notes.</strong>
+        This dashboard is for educational purposes and is <strong>not investment advice</strong>. Live trading of NSE equities and derivatives involves substantial risk of loss — you can lose your entire capital.
+        Your Dhan Client ID and Access Token are stored <strong>only in this browser's localStorage</strong> and are sent <strong>only directly to api.dhan.co</strong> — they never touch any other server.
+        Some browsers may block direct calls to the Dhan API (CORS); in that case this page keeps working in <strong>paper mode</strong>.
+        Public price feeds (Stooq / Yahoo) are delayed and unofficial. Always verify prices on your broker's terminal before trading.
+    </div>
+    <div>
+        🇮🇳 Indian Stock Market Dashboard ·
+        <a href="index.html">Main Dashboard</a> ·
+        <a href="mobile.html">Mobile Auto Trading</a> ·
+        <a href="AUTO_TRADING_GUIDE.md">Auto Trading Guide</a> ·
+        <a href="https://dhanhq.co/docs/v2/" target="_blank" rel="noopener">DhanHQ API Docs</a>
+    </div>
+</footer>
+
+<div id="toast-container"></div>
+<noscript><div style="padding:20px;text-align:center;font-weight:700;">This dashboard requires JavaScript to run.</div></noscript>
+
+<!-- ===== LIBRARIES (existing project modules) ===== -->
+<script src="nse-universe.js"></script>
+<script src="live-data.js"></script>
+<script src="auto-trading/broker-interface.js"></script>
+<script src="auto-trading/strategies.js"></script>
+<script src="auto-trading/risk-manager.js"></script>
+<script src="auto-trading/brokers/mock-broker.js"></script>
+<script src="auto-trading/brokers/dhan-broker.js"></script>
+<script src="auto-trading/engine.js"></script>
+
+<script>
+/* =========================================================================
+   DHAN LIVE — page controller
+   Paper mode by default (MockBroker + live public prices).
+   Connect Dhan to read real funds/positions/orders and place real orders.
+   ========================================================================= */
+(function () {
+    'use strict';
+
+    /* ---------- constants & state ---------- */
+    var WATCHLIST = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'SBIN', 'BHARTIARTL', 'ITC', 'LT', 'MARUTI'];
+    var LS_KEY = 'dhanLive.config.v1';
+    var MARKET_REFRESH_MS = 30000;   // live quotes
+    var ACCOUNT_REFRESH_MS = 15000;  // positions/orders/funds
+
+    var state = {
+        broker: null,            // current broker instance
+        brokerKind: 'paper',     // 'paper' | 'live'
+        engine: null,
+        riskManager: null,
+        marketTimer: null,
+        accountTimer: null,
+        clockTimer: null,
+        intraday: {},            // symbol -> [closes] accumulated for intraday RSI
+        manualSide: 'BUY',
+        lastSnapshot: null,
+        dayPnl: 0
+    };
+
+    var DEFAULTS = {
+        clientId: '', accessToken: '',
+        mode: 'PAPER', scanMs: 30000,
+        strategies: ['EMA_CROSSOVER', 'RSI_REVERSAL'],
+        capital: 100000, riskPerTrade: 1, maxPositions: 3, minRR: 2,
+        trailing: true, squareOnStop: false
+    };
+
+    /* ---------- tiny helpers ---------- */
+    function $(id) { return document.getElementById(id); }
+    function esc(v) {
+        return String(v === null || v === undefined ? '' : v).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function isNum(v) { return typeof v === 'number' && isFinite(v); }
+    function inr(v, digits) {
+        if (!isNum(v)) return '—';
+        return '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: digits === undefined ? 2 : digits, maximumFractionDigits: digits === undefined ? 2 : digits });
+    }
+    function num(v, digits) {
+        if (!isNum(v)) return '—';
+        return v.toLocaleString('en-IN', { maximumFractionDigits: digits === undefined ? 2 : digits });
+    }
+    function vol(v) {
+        if (!isNum(v)) return '—';
+        if (v >= 1e7) return (v / 1e7).toFixed(2) + ' Cr';
+        if (v >= 1e5) return (v / 1e5).toFixed(1) + ' L';
+        if (v >= 1e3) return (v / 1e3).toFixed(1) + ' K';
+        return String(v);
+    }
+    function tsShort(t) {
+        try {
+            return new Date(t).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        } catch (e) { return ''; }
+    }
+    function toast(msg, type) {
+        var box = $('toast-container');
+        var el = document.createElement('div');
+        el.className = 'toast toast-' + (type || 'info');
+        el.textContent = msg;
+        box.appendChild(el);
+        setTimeout(function () { el.classList.add('hide'); setTimeout(function () { el.remove(); }, 350); }, 4500);
+    }
+    function showAlert(elId, msg) {
+        var el = $(elId);
+        if (msg) { el.textContent = msg; el.classList.add('show'); }
+        else { el.classList.remove('show'); el.textContent = ''; }
+    }
+    function loadConfig() {
+        try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(LS_KEY) || '{}')); }
+        catch (e) { return Object.assign({}, DEFAULTS); }
+    }
+    function saveConfig(cfg) {
+        try { localStorage.setItem(LS_KEY, JSON.stringify(cfg)); } catch (e) { /* private mode */ }
+    }
+
+    /* ---------- logs ---------- */
+    function addLog(entry) {
+        var box = $('log-box');
+        var line = document.createElement('div');
+        line.className = 'log-entry log-' + ((entry && entry.level) || 'info');
+        var time = document.createElement('span');
+        time.className = 'log-time';
+        time.textContent = tsShort((entry && entry.timestamp) || Date.now());
+        line.appendChild(time);
+        line.appendChild(document.createTextNode((entry && entry.message) || '—'));
+        box.appendChild(line);
+        while (box.childNodes.length > 300) box.removeChild(box.firstChild);
+        box.scrollTop = box.scrollHeight;
+    }
+    window.clearLogs = function () { $('log-box').innerHTML = ''; };
+
+    /* ---------- config <-> form ---------- */
+    function cfg() { return loadConfig(); }
+    function persistFromForm() {
+        var c = cfg();
+        c.clientId = $('dh-client-id').value.trim();
+        c.accessToken = $('dh-access-token').value.trim();
+        c.mode = $('at-mode').value;
+        c.scanMs = Number($('at-scan').value) || 30000;
+        c.strategies = Array.prototype.slice.call(document.querySelectorAll('.at-strategy:checked')).map(function (el) { return el.value; });
+        c.capital = Number($('at-capital').value) || 100000;
+        c.riskPerTrade = Number($('at-risk').value) || 1;
+        c.maxPositions = Number($('at-maxpos').value) || 3;
+        c.minRR = Number($('at-rr').value) || 2;
+        c.trailing = $('at-trailing').checked;
+        c.squareOnStop = $('at-squareonstop').checked;
+        saveConfig(c);
+        return c;
+    }
+    function fillForm() {
+        var c = cfg();
+        $('dh-client-id').value = c.clientId || '';
+        $('dh-access-token').value = c.accessToken || '';
+        $('at-mode').value = c.mode === 'LIVE' ? 'LIVE' : 'PAPER';
+        $('at-scan').value = String(c.scanMs || 30000);
+        document.querySelectorAll('.at-strategy').forEach(function (el) { el.checked = (c.strategies || []).indexOf(el.value) !== -1; });
+        $('at-capital').value = c.capital || 100000;
+        $('at-risk').value = c.riskPerTrade || 1;
+        $('at-maxpos').value = c.maxPositions || 3;
+        $('at-rr').value = String(c.minRR || 2);
+        $('at-trailing').checked = !!c.trailing;
+        $('at-squareonstop').checked = !!c.squareOnStop;
+    }
+
+    /* ---------- engine config builder ---------- */
+    function buildEngineConfig() {
+        var c = persistFromForm();
+        return {
+            mode: c.mode,
+            broker: state.brokerKind === 'live' ? 'DHAN' : 'MOCK',
+            capital: c.capital,
+            riskPerTrade: c.riskPerTrade,
+            maxDailyLoss: 2,
+            maxPositions: c.maxPositions,
+            maxTradesPerDay: 10,
+            orderType: 'MARKET',
+            productType: 'INTRADAY',
+            exchange: 'NSE',
+            minRiskReward: c.minRR,
+            defaultStopLossPercent: 0.8,
+            defaultTargetPercent: 1.5,
+            useTrailingSL: c.trailing,
+            trailingSLPercent: 0.5,
+            marketStart: '09:15',
+            marketEnd: '15:30',
+            autoSquareOff: '15:15',
+            noNewTradesAfter: '14:30',
+            activeStrategies: c.strategies.length ? c.strategies : ['RSI_REVERSAL'],
+            universe: 'CUSTOM',
+            customSymbols: WATCHLIST.slice(),
+            filters: { minPrice: 20, minVolume: 100000, minRSI: 30, maxRSI: 70 },
+            scanInterval: c.scanMs,
+            priceCheckInterval: 5000,
+            squareOffOnStop: c.squareOnStop,
+            enableNotifications: false,
+            logLevel: 'INFO'
+        };
+    }
+
+    /* ---------- connection ---------- */
+    function setConnBadge(kind) {
+        var badge = $('conn-badge');
+        if (kind === 'live') { badge.textContent = '🟢 LIVE · Dhan connected'; badge.className = 'badge badge-live'; }
+        else { badge.textContent = '🟡 PAPER · simulated fills'; badge.className = 'badge badge-paper'; }
+        $('btn-disconnect').disabled = kind !== 'live';
+        $('manual-mode-note').textContent = kind === 'live' ? 'LIVE — real orders' : 'paper mode';
+    }
+
+    function newPaperBroker() {
+        var c = cfg();
+        var b = new MockBroker({ capital: c.capital || 100000 });
+        state.broker = b;
+        state.brokerKind = 'paper';
+        return b;
+    }
+
+    window.connectDhan = async function () {
+        if (typeof DhanBroker === 'undefined') {
+            toast('DhanBroker module failed to load — see Activity Log.', 'error');
+            return;
+        }
+        var clientId = $('dh-client-id').value.trim();
+        var accessToken = $('dh-access-token').value.trim();
+        if (!clientId || !accessToken) {
+            showAlert('alert-warn', '⚠️ Enter both your Dhan Client ID and Access Token to connect. Get them from dhan.co → Profile → DhanHQ API.');
+            return;
+        }
+        var btn = $('btn-connect');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Connecting…';
+        try {
+            var b = new DhanBroker({ clientId: clientId, accessToken: accessToken });
+            var res = await b.connect(); // calls GET /funds
+            state.broker = b;
+            state.brokerKind = 'live';
+            persistFromForm();
+            setConnBadge('live');
+            showAlert('alert-warn', '');
+            addLog({ timestamp: Date.now(), level: 'info', message: '🔌 Connected to Dhan (client ' + esc(clientId).slice(0, 12) + '…)' });
+            toast('Connected to Dhan — live account mode', 'success');
+            refreshAccount();
+        } catch (e) {
+            var msg = String(e && e.message || e);
+            if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+                showAlert('alert-error', '🚫 Your browser blocked the call to api.dhan.co (CORS/network). The page stays in <b>paper mode</b>. To trade live, run the project with a small proxy or use the Dhan app itself. Paper mode keeps full functionality with simulated fills.');
+            } else {
+                showAlert('alert-error', '❌ Dhan connection failed: ' + esc(msg));
+            }
+            newPaperBroker();
+            setConnBadge('paper');
+            toast('Dhan connection failed — paper mode active', 'error');
+            refreshAccount();
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '🔌 Connect to Dhan';
+        }
+    };
+
+    window.disconnectDhan = function () {
+        if (state.engine && state.engine.isRunning) {
+            if (!confirm('Stop the auto-trading engine before switching to paper mode?')) return;
+            stopEngine();
+        }
+        newPaperBroker();
+        setConnBadge('paper');
+        showAlert('alert-warn', '');
+        addLog({ timestamp: Date.now(), level: 'info', message: '↩ Switched back to paper mode' });
+        toast('Back to paper mode', 'info');
+        refreshAccount();
+    };
+
+    /* ---------- account data (funds / positions / orders) ---------- */
+    function pnlCls(v) { return isNum(v) ? (v > 0 ? 'pos' : (v < 0 ? 'neg' : '')) : ''; }
+
+    async function refreshFunds() {
+        try {
+            var f = await state.broker.getFunds();
+            $('stat-available').textContent = inr(f && f.available);
+            $('stat-used').textContent = inr(f && f.used);
+            $('stat-total').textContent = inr(f && f.total);
+            if (isNum(f && f.pnl)) {
+                $('stat-daypnl').textContent = (f.pnl > 0 ? '+' : '') + inr(f.pnl);
+                $('stat-daypnl').className = 'stat-value ' + pnlCls(f.pnl);
+                state.dayPnl = f.pnl;
+            }
+            // note: "Trades Today" is set from the orders list in refreshOrders()
+        } catch (e) {
+            $('stat-available').textContent = '—';
+            $('stat-used').textContent = '—';
+            $('stat-total').textContent = '—';
+            addLog({ timestamp: Date.now(), level: 'error', message: 'Funds refresh failed: ' + e.message });
+        }
+    }
+
+    async function refreshPositions() {
+        var body = $('positions-body');
+        try {
+            var rows = await state.broker.getPositions();
+            if (!Array.isArray(rows)) rows = [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="8" class="empty">No open positions ' + (state.brokerKind === 'live' ? 'on your Dhan account today' : 'yet — place an order or start the engine') + '.</td></tr>';
+            } else {
+                body.innerHTML = rows.map(function (p) {
+                    var qty = isNum(p.quantity) ? p.quantity : (isNum(p.netQty) ? p.netQty : null);
+                    var avg = isNum(p.avgPrice) ? p.avgPrice : (isNum(p.avgPrice) ? p.avgPrice : null);
+                    var ltp = isNum(p.ltp) ? p.ltp : null;
+                    var pnl = isNum(p.pnl) ? p.pnl : null;
+                    var pct = (isNum(pnl) && isNum(avg) && avg) ? (pnl / (avg * Math.abs(qty || 1))) * 100 : null;
+                    var prod = (p.product || p.productType || 'INTRADAY').toUpperCase();
+                    var prodTag = prod.indexOf('CNC') !== -1 ? 'tag-cnc' : 'tag-intraday';
+                    return '<tr>' +
+                        '<td class="sym">' + esc(p.symbol || p.tradingSymbol || '—') + '</td>' +
+                        '<td>' + (isNum(qty) ? (qty < 0 ? '<span class="neg">' + qty + '</span>' : qty) : '—') + '</td>' +
+                        '<td>' + num(avg) + '</td>' +
+                        '<td>' + num(ltp) + '</td>' +
+                        '<td class="' + pnlCls(pnl) + '">' + (isNum(pnl) ? (pnl > 0 ? '+' : '') + inr(pnl) : '—') + '</td>' +
+                        '<td class="' + pnlCls(pct) + '">' + (isNum(pct) ? (pct > 0 ? '+' : '') + pct.toFixed(2) + '%' : '—') + '</td>' +
+                        '<td><span class="tag ' + prodTag + '">' + esc(prod) + '</span></td>' +
+                        '<td><button class="btn btn-secondary btn-small" onclick="squareOff(\'' + esc(p.symbol || p.tradingSymbol || '') + '\')">Close</button></td>' +
+                        '</tr>';
+                }).join('');
+            }
+            $('stat-positions').textContent = String(rows.length);
+            $('stat-positions-sub').textContent = state.brokerKind === 'live' ? 'on Dhan account' : 'paper portfolio';
+        } catch (e) {
+            body.innerHTML = '<tr><td colspan="8" class="empty">Could not load positions: ' + esc(e.message) + '</td></tr>';
+        }
+    }
+
+    async function refreshOrders() {
+        var body = $('orders-body');
+        try {
+            var rows = await state.broker.getOrders();
+            if (!Array.isArray(rows)) rows = [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="9" class="empty">No orders yet today.</td></tr>';
+                return;
+            }
+            body.innerHTML = rows.slice().reverse().slice(0, 40).map(function (o) {
+                var id = o.orderId || o.order_id || '—';
+                var sym = o.tradingSymbol || o.symbol || (o.securityId ? 'SEC-' + o.securityId : '—');
+                var side = (o.transactionType || o.side || '—').toUpperCase();
+                var sideTag = side === 'BUY' ? 'tag-buy' : 'tag-sell';
+                var status = (o.orderStatus || o.status || '—').toUpperCase();
+                var stCls = 'tag-status' + (status === 'COMPLETE' || status === 'EXECUTED' || status === 'FILLED' ? ' complete' : (status === 'CANCELLED' || status === 'REJECTED' ? ' cancelled' : (status === 'OPEN' || status === 'PENDING' ? ' open' : '')));
+                var cancellable = state.brokerKind === 'paper' && status !== 'CANCELLED' && status !== 'COMPLETE';
+                return '<tr>' +
+                    '<td>' + esc(String(id).length > 14 ? String(id).slice(0, 14) + '…' : id) + '</td>' +
+                    '<td class="sym">' + esc(sym) + '</td>' +
+                    '<td><span class="tag ' + sideTag + '">' + esc(side) + '</span></td>' +
+                    '<td>' + (isNum(o.quantity) ? o.quantity : (o.qty || '—')) + '</td>' +
+                    '<td>' + num(o.price !== undefined ? o.price : o.fillPrice) + '</td>' +
+                    '<td>' + esc(o.orderType || o.type || '—') + '</td>' +
+                    '<td><span class="tag ' + stCls + '">' + esc(status) + '</span></td>' +
+                    '<td>' + esc(tsShort(o.time || o.timestamp)) + '</td>' +
+                    '<td>' + (cancellable ? '<button class="btn btn-secondary btn-small" onclick="cancelOrder(\'' + esc(id) + '\')">✕</button>' : '') + '</td>' +
+                    '</tr>';
+            }).join('');
+            // "Trades today" = orders placed today (paper: all session orders; live: Dhan day orders)
+            $('stat-trades').textContent = String(rows.length);
+        } catch (e) {
+            body.innerHTML = '<tr><td colspan="9" class="empty">Could not load orders: ' + esc(e.message) + '</td></tr>';
+        }
+    }
+
+    window.refreshAccount = function () { refreshFunds(); refreshPositions(); refreshOrders(); };
+
+    /* ---------- actions ---------- */
+    function requireBroker() {
+        if (!state.broker) { toast('Broker not ready yet.', 'error'); return false; }
+        return true;
+    }
+
+    window.squareOff = async function (symbol) {
+        if (!requireBroker()) return;
+        var label = state.brokerKind === 'live' ? 'This will send a REAL market order to close ' + symbol + ' on Dhan. Continue?' : 'Close paper position ' + symbol + '?';
+        if (!confirm(label)) return;
+        try {
+            var res = await state.broker.squareOffPosition(symbol);
+            if (res) {
+                toast(symbol + ' squared off (order ' + (res.orderId || 'ok') + ')', 'success');
+                addLog({ timestamp: Date.now(), level: 'info', message: '⛔ Squared off ' + symbol });
+            } else {
+                toast('No open position for ' + symbol, 'warn');
+            }
+            refreshAccount();
+        } catch (e) {
+            toast('Square-off failed: ' + e.message, 'error');
+        }
+    };
+
+    window.squareOffAll = async function () {
+        if (!requireBroker()) return;
+        var label = state.brokerKind === 'live'
+            ? 'Send REAL market orders to close ALL open positions on Dhan? This cannot be undone.'
+            : 'Close all paper positions?';
+        if (!confirm(label)) return;
+        try {
+            var results = await state.broker.squareOffAll();
+            toast('All positions squared off (' + (results ? results.length : 0) + ')', 'success');
+            addLog({ timestamp: Date.now(), level: 'warn', message: '⛔ Square-off ALL executed' });
+            refreshAccount();
+        } catch (e) {
+            toast('Square-off failed: ' + e.message, 'error');
+        }
+    };
+
+    window.cancelOrder = async function (orderId) {
+        if (!requireBroker()) return;
+        try {
+            await state.broker.cancelOrder(orderId);
+            toast('Order ' + orderId + ' cancelled', 'info');
+            refreshOrders();
+        } catch (e) {
+            toast('Cancel failed: ' + e.message, 'error');
+        }
+    };
+
+    window.setSide = function (side) {
+        state.manualSide = side;
+        var buy = $('side-buy'), sell = $('side-sell');
+        buy.style.cssText = side === 'BUY' ? '' : 'background:#f3f4f6;color:#111827;border:1px solid #e5e7eb;';
+        sell.style.cssText = side === 'SELL' ? '' : 'background:#f3f4f6;color:#111827;border:1px solid #e5e7eb;';
+    };
+
+    window.togglePriceField = function () {
+        $('mo-price-group').style.display = $('mo-type').value === 'LIMIT' ? '' : 'none';
+    };
+
+    window.placeManualOrder = async function () {
+        if (!requireBroker()) return;
+        var symbol = $('mo-symbol').value.trim().toUpperCase().replace(/\.NS$/i, '');
+        var qty = parseInt($('mo-qty').value, 10);
+        var product = $('mo-product').value;
+        var orderType = $('mo-type').value;
+        var price = orderType === 'LIMIT' ? parseFloat($('mo-price').value) : 0;
+        if (!symbol) { toast('Enter a symbol (e.g. RELIANCE)', 'warn'); return; }
+        if (!isNum(qty) || qty < 1) { toast('Quantity must be at least 1', 'warn'); return; }
+        if (orderType === 'LIMIT' && (!isNum(price) || price <= 0)) { toast('Enter a valid limit price', 'warn'); return; }
+        var label = state.brokerKind === 'live'
+            ? 'Send a REAL ' + orderType + ' order: ' + state.manualSide + ' ' + qty + ' × ' + symbol + ' (' + product + ')' + (price ? ' @ ₹' + price : '') + ' to Dhan?\n\nCheck your Dhan app if you need a security-id mapping for this stock.'
+            : 'Place paper order: ' + state.manualSide + ' ' + qty + ' × ' + symbol + '?';
+        if (!confirm(label)) return;
+
+        var btn = $('btn-place');
+        btn.disabled = true;
+        try {
+            var res = await state.broker.placeOrder({
+                symbol: symbol, side: state.manualSide, quantity: qty,
+                price: price, orderType: orderType, product: product, exchange: 'NSE', tag: 'manual'
+            });
+            toast('Order placed: ' + symbol + ' (' + (res && res.orderId || 'ok') + ')', 'success');
+            addLog({ timestamp: Date.now(), level: 'info', message: '📤 Manual ' + state.manualSide + ' ' + qty + ' × ' + symbol + (price ? ' @ ₹' + price : ' @ market') });
+            refreshAccount();
+        } catch (e) {
+            toast('Order failed: ' + e.message, 'error');
+            addLog({ timestamp: Date.now(), level: 'error', message: '❌ Manual order failed for ' + symbol + ': ' + e.message });
+        } finally {
+            btn.disabled = false;
+        }
+    };
+
+    /* ---------- auto trading engine ---------- */
+    function setEngineBadge(running) {
+        var badge = $('engine-badge');
+        if (running) { badge.textContent = '🟢 Running'; badge.className = 'badge badge-live'; }
+        else { badge.textContent = '⏸ Stopped'; badge.className = 'badge badge-paper'; }
+        $('btn-start').disabled = running;
+        $('btn-stop').disabled = !running;
+    }
+
+    window.startEngine = async function () {
+        if (state.engine && state.engine.isRunning) return;
+        if (typeof AutoTradingEngine === 'undefined' || typeof RiskManager === 'undefined') {
+            toast('Engine modules failed to load — see Activity Log.', 'error');
+            return;
+        }
+        var c = cfg();
+        if (c.mode === 'LIVE') {
+            if (state.brokerKind !== 'live') {
+                showAlert('alert-warn', '⚠️ LIVE mode needs a connected Dhan account. Connect Dhan first, or switch to PAPER mode.');
+                return;
+            }
+            if (!confirm('🔴 LIVE MODE: the engine will place REAL orders on your Dhan account using your own money.\n\nCapital: ₹' + c.capital + ' · Risk/trade: ' + c.riskPerTrade + '% · Strategies: ' + (c.strategies.join(', ') || 'none') + '\n\nContinue?')) return;
+        }
+        if (!c.strategies || !c.strategies.length) {
+            toast('Select at least one strategy', 'warn');
+            return;
+        }
+        var btn = $('btn-start');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Starting…';
+        try {
+            var ecfg = buildEngineConfig();
+            if (!state.broker.isConnected) {
+                addLog({ timestamp: Date.now(), level: 'info', message: 'Connecting to ' + state.broker.name + ' broker…' });
+                await state.broker.connect();
+            }
+            state.riskManager = new RiskManager(ecfg);
+            state.engine = new AutoTradingEngine(ecfg, state.broker, state.riskManager);
+            state.engine.onLog = addLog;
+            state.engine.onTrade = function (t) {
+                if (t.type === 'ORDER_PLACED') {
+                    toast('Auto ' + (t.signal && t.signal.signal) + ': ' + t.symbol + ' × ' + t.quantity, 'success');
+                    refreshAccount();
+                } else if (t.type === 'ORDER_EXITED') {
+                    toast('Auto exit ' + t.symbol + ': ' + (t.pnl > 0 ? '+' : '') + inr(t.pnl), t.pnl >= 0 ? 'success' : 'warn');
+                    refreshAccount();
+                }
+            };
+            state.engine.onStatusUpdate = function (s) {
+                if (s && s.riskStatus && isNum(s.riskStatus.dailyPnl)) {
+                    $('stat-daypnl').textContent = (s.riskStatus.dailyPnl > 0 ? '+' : '') + inr(s.riskStatus.dailyPnl);
+                    $('stat-daypnl').className = 'stat-value ' + pnlCls(s.riskStatus.dailyPnl);
+                }
+            };
+            await state.engine.start();
+            setEngineBadge(true);
+            toast('Auto trading started (' + ecfg.mode + ' mode)', 'success');
+        } catch (e) {
+            toast('Engine start failed: ' + e.message, 'error');
+            addLog({ timestamp: Date.now(), level: 'error', message: 'Engine start failed: ' + e.message });
+            setEngineBadge(false);
+        } finally {
+            btn.innerHTML = '▶ Start Engine';
+        }
+    };
+
+    window.stopEngine = async function () {
+        if (!state.engine) return;
+        try {
+            await state.engine.stop();
+        } catch (e) { /* already stopped */ }
+        state.engine = null;
+        setEngineBadge(false);
+        toast('Auto trading stopped', 'info');
+    };
+
+    window.onModeChange = function () {
+        var live = $('at-mode').value === 'LIVE';
+        $('at-mode-note').textContent = live
+            ? (state.brokerKind === 'live' ? '✅ Will place real orders on your Dhan account.' : 'LIVE requires a connected Dhan account.')
+            : 'Simulated fills — no real money at risk.';
+        persistFromForm();
+    };
+
+    /* ---------- live market data ---------- */
+    async function refreshMarketData() {
+        if (typeof LiveData === 'undefined') return;
+        var snap = null;
+        try {
+            snap = await LiveData.fetchMarketSnapshot(WATCHLIST, { yahooFallbackLimit: 3 });
+        } catch (e) { snap = null; }
+        if (!snap || !snap.quotes) snap = { quotes: [], source: 'Unavailable', realQuoteCount: 0, requestedCount: WATCHLIST.length, updated: new Date().toISOString() };
+        state.lastSnapshot = snap;
+
+        // window.STOCKS is read by MockBroker for live paper fills
+        window.STOCKS = snap.quotes.map(function (q) {
+            return {
+                symbol: q.symbol, price: q.price, open: q.open || q.price, high: q.high || q.price,
+                low: q.low || q.price, close: q.close || q.price, volume: q.volume || 0,
+                change: q.change || 0, percent: q.percent || 0, source: q.source
+            };
+        });
+
+        // accumulate intraday closes (for intraday RSI + trend)
+        snap.quotes.forEach(function (q) {
+            if (!isNum(q.price) || q.price <= 0) return;
+            var arr = state.intraday[q.symbol] || (state.intraday[q.symbol] = []);
+            var last = arr[arr.length - 1];
+            if (last === undefined || Math.abs(last - q.price) > 1e-9) arr.push(q.price);
+            if (arr.length > 120) arr.shift();
+        });
+
+        renderWatchlist(snap);
+
+        var el = $('data-source');
+        if (snap.realQuoteCount === 0) {
+            el.textContent = '📡 Demo prices (public feeds unreachable)';
+            $('watchlist-note').textContent = 'demo fallback';
+        } else {
+            el.textContent = '📡 ' + (snap.source || 'public feeds') + ' · ' + snap.realQuoteCount + '/' + snap.requestedCount + ' live';
+            $('watchlist-note').textContent = 'public delayed prices · refreshes every 30s';
+        }
+    }
+
+    function renderWatchlist(snap) {
+        var body = $('watchlist-body');
+        var rows = WATCHLIST.map(function (sym) {
+            var q = null;
+            for (var i = 0; i < snap.quotes.length; i++) if (snap.quotes[i].symbol === sym) { q = snap.quotes[i]; break; }
+            if (!q || !isNum(q.price)) return null;
+            var closes = state.intraday[sym] || [];
+            var rsi = closes.length >= 15 ? TradingStrategies.calculateRSI(closes, 14) : null;
+            var first = closes[0], last = closes[closes.length - 1];
+            var trend = last === undefined || first === undefined ? '' : (last > first * 1.001 ? '↑' : (last < first * 0.999 ? '↓' : '→'));
+            var trendCls = trend === '↑' ? 'trend-up' : (trend === '↓' ? 'trend-down' : 'trend-flat');
+            // simple intraday signal once we have enough samples
+            var sigHtml = '<span class="sig sig-none">…</span>';
+            if (closes.length >= 20) {
+                try {
+                    var candles = closes.map(function (c, j) {
+                        var prev = j > 0 ? closes[j - 1] : c;
+                        return { timestamp: new Date(Date.now() - (closes.length - 1 - j) * MARKET_REFRESH_MS), open: prev, high: Math.max(prev, c), low: Math.min(prev, c), close: c, volume: 0 };
+                    });
+                    var sig = TradingStrategies.analyze({ symbol: sym, price: last, volume: 0 }, candles, 'RSI_REVERSAL', {});
+                    if (sig && sig.signal === 'BUY' && sig.confidence >= 60) sigHtml = '<span class="sig sig-buy">BUY</span>';
+                    else if (sig && sig.signal === 'SELL' && sig.confidence >= 60) sigHtml = '<span class="sig sig-sell">SELL</span>';
+                    else sigHtml = '<span class="sig sig-none">—</span>';
+                } catch (e) { sigHtml = '<span class="sig sig-none">—</span>'; }
+            }
+            var chgCls = isNum(q.percent) ? (q.percent > 0 ? 'pos' : (q.percent < 0 ? 'neg' : '')) : '';
+            var demoTag = q.source === 'Demo fallback' ? ' <span title="Simulated — public feed unreachable" style="color:#9ca3af;">*</span>' : '';
+            return '<tr>' +
+                '<td class="sym">' + esc(sym) + demoTag + '</td>' +
+                '<td><span class="' + trendCls + '">' + num(q.price) + ' ' + trend + '</span></td>' +
+                '<td class="' + chgCls + '">' + (isNum(q.percent) ? (q.percent > 0 ? '+' : '') + q.percent.toFixed(2) + '%' : '—') + '</td>' +
+                '<td>' + vol(q.volume) + '</td>' +
+                '<td>' + (isNum(rsi) ? rsi.toFixed(1) : 'collecting…') + '</td>' +
+                '<td>' + sigHtml + '</td>' +
+                '</tr>';
+        }).filter(Boolean);
+        body.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="6" class="empty">No quotes yet — retrying shortly…</td></tr>';
+    }
+
+    /* ---------- clock / market status ---------- */
+    function tickClock() {
+        try {
+            $('clock').textContent = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        } catch (e) { $('clock').textContent = new Date().toLocaleTimeString(); }
+        var open = typeof LiveData !== 'undefined' && LiveData.isMarketOpen(new Date());
+        $('market-dot').className = 'dot ' + (open ? 'open' : 'closed');
+        $('market-status').textContent = 'Market: ' + (open ? 'OPEN' : 'CLOSED') + ' (9:15 AM – 3:30 PM IST)';
+    }
+
+    /* ---------- master refresh ---------- */
+    window.refreshAll = function () { refreshMarketData(); refreshAccount(); };
+
+    function startTimers() {
+        state.clockTimer = setInterval(tickClock, 1000);
+        state.marketTimer = setInterval(refreshMarketData, MARKET_REFRESH_MS);
+        state.accountTimer = setInterval(refreshAccount, ACCOUNT_REFRESH_MS);
+    }
+
+    /* ---------- init ---------- */
+    async function init() {
+        try {
+            // sanity: modules
+            var missing = [];
+            if (typeof LiveData === 'undefined') missing.push('live-data.js');
+            if (typeof MockBroker === 'undefined') missing.push('mock-broker.js');
+            if (typeof DhanBroker === 'undefined') missing.push('dhan-broker.js');
+            if (typeof AutoTradingEngine === 'undefined') missing.push('engine.js');
+            if (missing.length) {
+                showAlert('alert-error', '❌ Some scripts failed to load: ' + missing.join(', ') + '. Reload the page — if this persists, check the repository files.');
+                addLog({ timestamp: Date.now(), level: 'error', message: 'Missing modules: ' + missing.join(', ') });
+            }
+
+            fillForm();
+            tickClock();
+
+            // populate symbol picker
+            var dl = $('symbols-list');
+            var pool = WATCHLIST.slice();
+            try {
+                (NSEUniverse.BASE_SYMBOLS || []).forEach(function (s) { if (pool.indexOf(s) === -1) pool.push(s); });
+            } catch (e) { /* optional */ }
+            dl.innerHTML = pool.slice(0, 200).map(function (s) { return '<option value="' + esc(s) + '">'; }).join('');
+
+            newPaperBroker();
+            setConnBadge('paper');
+            setSide('BUY');
+            onModeChange();
+
+            addLog({ timestamp: Date.now(), level: 'info', message: '🇮🇳 Dhan Live loaded — paper mode by default. Connect Dhan (top card) for a real account.' });
+            addLog({ timestamp: Date.now(), level: 'debug', message: 'Tip: public quotes refresh every 30s; RSI/signal chips appear after ~10–15 refreshes.' });
+
+            await state.broker.connect();
+            refreshAll();
+            startTimers();
+        } catch (e) {
+            showAlert('alert-error', '❌ Initialization failed: ' + esc(e.message));
+        }
+    }
+
+    init();
+})();
+</script>
+</body>
+</html>

@@ -1,21 +1,24 @@
 // Auto Trading Engine - Core loop that scans, analyzes, places orders, and exits
 
 // For Node.js - load dependencies
-let TradingStrategies, RiskManager;
+// NOTE: renamed from TradingStrategies/RiskManager to StrategiesLib/RiskManagerLib
+// so this file can be loaded on a page together with strategies.js and
+// risk-manager.js (duplicate top-level declarations would throw SyntaxError).
+let StrategiesLib, RiskManagerLib;
 if (typeof module !== 'undefined' && module.exports) {
     try {
-        TradingStrategies = require('./strategies.js');
+        StrategiesLib = require('./strategies.js');
     } catch (e) {
-        TradingStrategies = global.TradingStrategies;
+        StrategiesLib = global.TradingStrategies;
     }
     try {
-        RiskManager = require('./risk-manager.js');
+        RiskManagerLib = require('./risk-manager.js');
     } catch (e) {
-        RiskManager = global.RiskManager;
+        RiskManagerLib = global.RiskManager;
     }
 } else {
-    TradingStrategies = window.TradingStrategies;
-    RiskManager = window.RiskManager;
+    StrategiesLib = window.TradingStrategies;
+    RiskManagerLib = window.RiskManager;
 }
 
 class AutoTradingEngine {
@@ -230,7 +233,7 @@ class AutoTradingEngine {
         let bestSignal = null;
 
         for (const strategyName of strategies) {
-            const result = TradingStrategies.analyze(stock, candles, strategyName, this.config);
+            const result = StrategiesLib.analyze(stock, candles, strategyName, this.config);
             
             if (!bestSignal || result.confidence > bestSignal.confidence) {
                 bestSignal = result;
@@ -276,7 +279,7 @@ class AutoTradingEngine {
         // RSI filter if we have it
         if (candles.length > 14) {
             const prices = candles.map(c => c.close);
-            const rsi = TradingStrategies.calculateRSI(prices, 14);
+            const rsi = StrategiesLib.calculateRSI(prices, 14);
             if (rsi < filters.minRSI || rsi > filters.maxRSI) {
                 // Allow if it's a strong reversal signal (RSI <30 or >70) even if outside filter
                 if (rsi > 30 && rsi < 70) {

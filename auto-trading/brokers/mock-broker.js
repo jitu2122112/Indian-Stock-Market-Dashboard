@@ -2,19 +2,22 @@
 // Perfect for testing strategies before going live
 
 // Load base class for Node.js
-let BrokerInterface;
+// NOTE: declared as MockBrokerBase (not BrokerInterface) so this file can be
+// loaded together with other broker files in the same page — duplicate
+// top-level `let BrokerInterface` declarations would throw a SyntaxError.
+let MockBrokerBase;
 if (typeof module !== 'undefined' && module.exports) {
     try {
-        BrokerInterface = require('../broker-interface.js');
+        MockBrokerBase = require('../broker-interface.js');
     } catch (e) {
         // Fallback if path differs
-        BrokerInterface = global.BrokerInterface || class {};
+        MockBrokerBase = global.BrokerInterface || class {};
     }
 } else {
-    BrokerInterface = window.BrokerInterface;
+    MockBrokerBase = window.BrokerInterface;
 }
 
-class MockBroker extends BrokerInterface {
+class MockBroker extends MockBrokerBase {
     constructor(config) {
         super(config);
         this.name = 'MOCK';
