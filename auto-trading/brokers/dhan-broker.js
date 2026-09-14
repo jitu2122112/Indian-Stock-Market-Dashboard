@@ -35,6 +35,12 @@ class DhanBroker extends DhanBrokerBase {
         this.usingProxy = !!this.proxyUrl;
         this.baseUrl = this.usingProxy ? this.proxyUrl : this.directUrl;
 
+        // Optional shared secret for the proxy — the Worker's ALLOW_TOKENS
+        // variable (see proxy/README.md step 4). It authenticates the caller to
+        // *your own* proxy, not to Dhan, so it is attached only to proxied
+        // requests and never sent to api.dhan.co directly.
+        this.proxyToken = String(config.proxyToken || config.DHAN_PROXY_TOKEN || '').trim();
+
         this.isConnected = false;
     }
 
@@ -47,7 +53,7 @@ class DhanBroker extends DhanBrokerBase {
         try {
             const funds = await this.getFunds();
             this.isConnected = true;
-            console.log(`[DhanBroker] Connected successfully (${this.usingProxy ? 'via proxy ' + this.proxyUrl : 'direct to api.dhan.co'})`);
+            console.log(`[DhanBroker] Connected successfully (${this.usingProxy ? 'via proxy ' + this.proxyUrl + (this.proxyToken ? ', x-proxy-token set' : '') : 'direct to api.dhan.co'})`);
             return { success: true, message: 'Connected to Dhan', funds };
         } catch (e) {
             throw new Error(`Dhan connection failed: ${e.message}`);
@@ -60,6 +66,15 @@ class DhanBroker extends DhanBrokerBase {
             'access-token': this.accessToken,
             'client-id': this.clientId
         };
+
+        // Only when routing through a proxy, and only if a token was supplied.
+        // The Worker answers 401 when its ALLOW_TOKENS secret is set and this
+        // header is missing or does not match. A direct call to api.dhan.co
+        // must never carry it — Dhan ignores it, and a proxy-specific secret
+        // has no business being sent to any other host.
+        if (this.usingProxy && this.proxyToken) {
+            headers['x-proxy-token'] = this.proxyToken;
+        }
 
         const options = { method, headers };
         if (body) options.body = JSON.stringify(body);
