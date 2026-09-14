@@ -1,6 +1,46 @@
 # 🇮🇳 Indian Stock Market Live Dashboard
 
-**A Complete Trading Platform for Beginners with Live Data, Intraday Signals, and Expert Guidance**
+**A Complete Trading Platform for Beginners with Live Data, Intraday Signals, and REAL Auto Trading with Groww/Dhan**
+
+> 🤖 **NEW: Real Auto Trading with Groww Account!** - Link your Groww account, auto-analyze market with 5 strategies, place orders, and auto-exit at target/SL. See `AUTO_TRADING_GUIDE.md` and click **Auto Trading** in dashboard.
+
+---
+
+## 🤖 **NEW: Auto Trading - Link Groww & Auto Buy/Sell**
+
+**Yes, you can now automate your Groww account!**
+
+- ✅ **Link Groww Account**: Via browser automation (Playwright) - uses your existing Groww balance
+- ✅ **Auto Analysis**: 5 strategies (RSI, EMA Crossover, Breakout, Supertrend, VWAP) + Combined voting
+- ✅ **Auto Order Placement**: Calculates qty based on risk (1% per trade), places BUY/SELL on Groww/Dhan
+- ✅ **Auto Exit**: Monitors LTP every 5s, exits at Target, Stop Loss, Trailing SL, or 3:15 PM auto square-off
+- ✅ **Risk Management**: Max 1% loss per trade, 2% daily loss limit, max 3 positions, 10 trades/day
+- ✅ **Paper Trading**: Test without real money first (no backend needed)
+
+**For Groww Real Trading:**
+```bash
+cd backend/node
+npm install
+npx playwright install chromium
+npm run groww-login  # Login with OTP, session saved
+npm start            # Backend at localhost:3001
+# Then open dashboard → Auto Trading → Start Bot
+```
+
+**For Dhan (Recommended - Free Official API):**
+```bash
+cd backend/node
+npm install
+# Get free API from dhan.co → My Profile → DhanHQ API
+# Set in .env: BROKER=DHAN, DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN
+npm start
+```
+
+See full guide: `AUTO_TRADING_GUIDE.md` and `auto-trading/README.md`
+
+---
+
+## 🎯 **What This Dashboard Offers**
 
 ---
 

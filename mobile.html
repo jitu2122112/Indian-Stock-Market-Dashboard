@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Auto Trading - Mobile - Groww</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #111827; padding-bottom: 80px; }
+.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 16px; text-align: center; position: sticky; top: 0; z-index: 10; }
+.header h1 { font-size: 20px; font-weight: 800; }
+.header p { font-size: 12px; opacity: 0.9; margin-top: 4px; }
+.container { padding: 16px; max-width: 600px; margin: 0 auto; }
+.card { background: white; border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e5e7eb; }
+.card h3 { font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.status-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-weight: 700; font-size: 12px; }
+.status-badge.running { background: #dcfce7; color: #166534; }
+.status-badge.stopped { background: #fee2e2; color: #991b1b; }
+.status-badge.paper { background: #fef3c7; color: #92400e; }
+.btn { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; margin: 6px 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-primary { background: #4361ee; color: white; }
+.btn-success { background: #10b981; color: white; }
+.btn-danger { background: #ef4444; color: white; }
+.btn-warning { background: #f59e0b; color: white; }
+.btn-secondary { background: #f3f4f6; color: #111827; border: 1px solid #e5e7eb; }
+.btn:disabled { opacity: 0.5; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #374151; }
+.form-group input, .form-group select { width: 100%; padding: 14px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; background: white; }
+.form-group small { color: #6b7280; font-size: 11px; display: block; margin-top: 4px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+.stat-box { background: #f9fafb; border-radius: 10px; padding: 12px; text-align: center; }
+.stat-box .label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-box .value { font-size: 18px; font-weight: 800; margin-top: 4px; }
+.stat-box .value.positive { color: #059669; }
+.stat-box .value.negative { color: #dc2626; }
+.log-box { background: #111827; color: #e5e7eb; border-radius: 10px; padding: 12px; max-height: 250px; overflow-y: auto; font-family: monospace; font-size: 11px; }
+.log-entry { padding: 3px 0; border-bottom: 1px solid #1f2937; }
+.position-card { background: #f9fafb; border-radius: 10px; padding: 12px; margin-bottom: 8px; border-left: 4px solid #4361ee; }
+.broker-card { border-radius: 12px; padding: 14px; margin-bottom: 12px; border: 2px solid; }
+.broker-card.groww { border-color: #f59e0b; background: #fffbeb; }
+.broker-card.dhan { border-color: #10b981; background: #ecfdf5; }
+.alert { padding: 12px; border-radius: 10px; font-size: 13px; margin: 10px 0; }
+.alert-info { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+.alert-warning { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; padding: 8px 0; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+.bottom-nav button { background: none; border: none; padding: 8px 16px; font-size: 11px; font-weight: 600; color: #6b7280; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.bottom-nav button.active { color: #4361ee; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🤖 Groww Auto Trading</h1>
+    <p>Auto Buy & Sell on Mobile - No Laptop Needed</p>
+</div>
+
+<div class="container">
+    <!-- Connection Status -->
+    <div class="card">
+        <h3>📡 Connection Status</h3>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0;">
+            <span id="backend-badge" class="status-badge stopped">🔴 Checking...</span>
+            <span id="mode-badge" class="status-badge paper">📝 PAPER MODE</span>
+            <span id="bot-badge" class="status-badge stopped">🔴 STOPPED</span>
+        </div>
+        <div id="backend-msg" class="alert alert-warning">Checking backend... If no backend, runs in paper mode (safe, no real money). For real Groww trading, need backend server.</div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="card">
+        <h3>📊 Live Stats</h3>
+        <div class="stat-grid">
+            <div class="stat-box">
+                <div class="label">Total P&L</div>
+                <div class="value" id="stat-pnl">₹0</div>
+            </div>
+            <div class="stat-box">
+                <div class="label">Win Rate</div>
+                <div class="value" id="stat-winrate">0%</div>
+            </div>
+            <div class="stat-box">
+                <div class="label">Trades</div>
+                <div class="value" id="stat-trades">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="label">Positions</div>
+                <div class="value" id="stat-positions">0</div>
+            </div>
+        </div>
+        <div class="grid-2">
+            <button id="start-btn" class="btn btn-primary">▶️ Start Bot</button>
+            <button id="stop-btn" class="btn btn-danger" disabled>⏹️ Stop</button>
+        </div>
+        <button id="squareoff-btn" class="btn btn-secondary">💰 Square Off All</button>
+    </div>
+
+    <!-- Broker Link - Mobile Friendly -->
+    <div class="card">
+        <h3>🔗 Link Your Account (For REAL Trading)</h3>
+        
+        <div class="broker-card dhan">
+            <h4>💚 DhanHQ - Best for Mobile (Free Official API)</h4>
+            <p style="font-size: 12px; margin: 6px 0;">✅ Works on mobile, no laptop needed<br>✅ Free, stable, no daily OTP<br>✅ Official SEBI compliant</p>
+            <div class="form-group">
+                <label>Dhan Client ID</label>
+                <input type="text" id="dhan-id" placeholder="Your Dhan Client ID">
+            </div>
+            <div class="form-group">
+                <label>Dhan Access Token</label>
+                <input type="password" id="dhan-token" placeholder="Paste token">
+            </div>
+            <button class="btn btn-success" onclick="saveDhan()">💾 Save Dhan & Connect</button>
+            <small style="font-size: 11px;">Get from: dhan.co → My Profile → DhanHQ API</small>
+        </div>
+
+        <div class="broker-card groww">
+            <h4>📈 Groww - Your Existing Account</h4>
+            <p style="font-size: 12px; margin: 6px 0;">⚠️ Needs laptop for first setup (Playwright)<br>⚠️ Daily OTP required<br>✅ Uses your Groww balance</p>
+            <button class="btn btn-warning" onclick="showGrowwGuide()">📖 How to Link Groww on Mobile</button>
+        </div>
+
+        <div id="groww-guide" class="hidden">
+            <div class="alert alert-info">
+                <strong>Groww on Mobile - 2 Options:</strong><br><br>
+                <strong>Option 1: Use Laptop Once (Recommended)</strong><br>
+                1. On laptop: cd backend/node → npm install → npm run groww-login → Login with OTP → Session saved<br>
+                2. Then deploy backend to free VPS (Render/Railway) → Works 24/7, you control from mobile<br><br>
+                <strong>Option 2: Direct API Token (Mobile Only)</strong><br>
+                1. On mobile Chrome, open groww.in → Login<br>
+                2. Chrome menu → More tools → Developer tools (or use Eruda bookmarklet)<br>
+                3. Application → Local Storage → https://groww.in → Copy groww_jwt<br>
+                4. Paste below:
+            </div>
+            <div class="form-group">
+                <label>Groww JWT Token</label>
+                <input type="password" id="groww-token" placeholder="Paste groww_jwt">
+            </div>
+            <button class="btn btn-warning" onclick="saveGroww()">💾 Save Groww Token</button>
+        </div>
+    </div>
+
+    <!-- Config - Mobile Optimized -->
+    <div class="card">
+        <h3>⚙️ Bot Configuration</h3>
+        <div class="form-group">
+            <label>Capital (₹) - Your total trading money</label>
+            <input type="number" id="capital" value="100000" min="5000" step="1000">
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label>Risk % per trade</label>
+                <select id="risk">
+                    <option value="0.5">0.5% (Safe)</option>
+                    <option value="1" selected>1% (Recommended)</option>
+                    <option value="2">2% (Aggressive)</option>
+                </select>
+                <small>1% of ₹1L = ₹1000 max loss/trade</small>
+            </div>
+            <div class="form-group">
+                <label>Max Positions</label>
+                <select id="maxpos">
+                    <option value="1">1 Stock</option>
+                    <option value="2">2 Stocks</option>
+                    <option value="3" selected>3 Stocks</option>
+                    <option value="5">5 Stocks</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Strategy (How bot picks stocks)</label>
+            <select id="strategy">
+                <option value="COMBINED" selected>🤖 COMBINED - All 5 strategies vote (Best)</option>
+                <option value="RSI_REVERSAL">📉 RSI - Buy when RSI < 30 (oversold)</option>
+                <option value="EMA_CROSSOVER">📈 EMA - 9 EMA crosses 21 EMA</option>
+                <option value="BREAKOUT">💥 Breakout - 20-day high + volume</option>
+                <option value="SUPERTREND">🌊 Supertrend - Trend following</option>
+                <option value="VWAP_RSI">🏦 VWAP - Institutional buying</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Stocks to Auto Trade (comma separated)</label>
+            <input type="text" id="symbols" value="RELIANCE,TCS,INFY,HDFCBANK,ICICIBANK" placeholder="RELIANCE,TCS,INFY">
+            <small>Bot scans these every 30 seconds</small>
+        </div>
+        <button class="btn btn-primary" onclick="saveConfig()">💾 Save Config</button>
+    </div>
+
+    <!-- Positions -->
+    <div class="card">
+        <h3>📊 Open Positions</h3>
+        <div id="positions-list">
+            <p style="text-align: center; color: #6b7280; padding: 20px; font-size: 13px;">No open positions. Start bot to begin.</p>
+        </div>
+    </div>
+
+    <!-- Trades -->
+    <div class="card">
+        <h3>📜 Recent Trades</h3>
+        <div id="trades-list">
+            <p style="text-align: center; color: #6b7280; padding: 20px; font-size: 13px;">No trades yet. Trades appear here.</p>
+        </div>
+    </div>
+
+    <!-- Logs -->
+    <div class="card">
+        <h3>📝 Live Logs</h3>
+        <div id="logs" class="log-box">
+            <div class="log-entry">[INFO] Bot ready. Configure and Start.</div>
+        </div>
+    </div>
+
+    <!-- Mobile Setup Guide -->
+    <div class="card" style="background: #f8fafc; border: 2px dashed #cbd5e1;">
+        <h3>📱 Mobile Setup Guide - No Laptop?</h3>
+        <div class="alert alert-info">
+            <strong>For 100% Mobile Auto Trading (No Laptop Needed):</strong><br><br>
+            <strong>Best Option: Dhan + TradingView Webhook (Works on Mobile)</strong><br>
+            1. Open Dhan account (free, 5 mins on mobile)<br>
+            2. Dhan has built-in TradingView strategy auto-trading<br>
+            3. No coding, no server needed<br>
+            4. You can configure from Dhan mobile app itself<br><br>
+            
+            <strong>Option 2: Deploy Backend to Free Cloud (One-time laptop, then mobile)</strong><br>
+            1. Use laptop once to setup backend/node<br>
+            2. Deploy to Render.com / Railway.app (free)<br>
+            3. Then control everything from mobile via this dashboard<br><br>
+
+            <strong>Option 3: Paper Trading on Mobile (Right Now)</strong><br>
+            - This page works fully on mobile in paper mode<br>
+            - No real money, safe testing<br>
+            - Click Start Bot to see it analyze and trade virtually
+        </div>
+        <button class="btn btn-secondary" onclick="window.open('https://dhanhq.co/docs/v2/', '_blank')">📚 Dhan API Docs (Free)</button>
+        <button class="btn btn-secondary" onclick="window.open('https://www.youtube.com/results?search_query=dhan+auto+trading+mobile', '_blank')">🎥 YouTube: Dhan Auto Trading Mobile</button>
+    </div>
+
+    <div class="card">
+        <h3>🔗 Full Dashboard on Mobile</h3>
+        <p style="font-size: 13px; margin-bottom: 10px;">This is simplified mobile version. For full dashboard with charts, screener, learning center:</p>
+        <button class="btn btn-primary" onclick="window.location.href='index.html'">🏠 Open Full Dashboard</button>
+        <button class="btn btn-secondary" onclick="window.location.href='AUTO_TRADING_GUIDE.md'">📖 Full Guide</button>
+    </div>
+</div>
+
+<!-- Bottom Nav -->
+<div class="bottom-nav">
+    <button class="active" onclick="scrollToTop()">🤖<br>Trading</button>
+    <button onclick="window.location.href='index.html'">🏠<br>Dashboard</button>
+    <button onclick="document.getElementById('positions-list').scrollIntoView({behavior:'smooth'})">📊<br>Positions</button>
+    <button onclick="document.getElementById('logs').scrollIntoView({behavior:'smooth'})">📝<br>Logs</button>
+</div>
+
+<!-- Scripts -->
+<script src="auto-trading/config.js"></script>
+<script src="auto-trading/broker-interface.js"></script>
+<script src="auto-trading/brokers/mock-broker.js"></script>
+<script src="auto-trading/brokers/dhan-broker.js"></script>
+<script src="auto-trading/brokers/groww-broker.js"></script>
+<script src="auto-trading/strategies.js"></script>
+<script src="auto-trading/risk-manager.js"></script>
+<script src="auto-trading/engine.js"></script>
+
+<script>
+let engine = null;
+let broker = null;
+let riskManager = null;
+let isRunning = false;
+let logs = [];
+let trades = [];
+let config = null;
+let backendUrl = 'http://localhost:3001';
+let isBackendConnected = false;
+
+function getDefaultConfig() {
+    return {
+        mode: 'PAPER',
+        broker: 'MOCK',
+        capital: 100000,
+        riskPerTrade: 1,
+        maxDailyLoss: 2,
+        maxPositions: 3,
+        maxTradesPerDay: 10,
+        customSymbols: ['RELIANCE','TCS','INFY','HDFCBANK','ICICIBANK'],
+        activeStrategies: ['COMBINED'],
+        scanInterval: 30000,
+        priceCheckInterval: 5000,
+        productType: 'INTRADAY',
+        useTrailingSL: true,
+        trailingSLPercent: 0.5,
+        marketStart: '09:15',
+        marketEnd: '15:30',
+        autoSquareOff: '15:15',
+        noNewTradesAfter: '14:30',
+        filters: { minPrice: 20, minVolume: 100000, minRSI: 0, maxRSI: 100 }
+    };
+}
+
+async function init() {
+    // Load config
+    const saved = localStorage.getItem('autoTradingConfig');
+    if (saved) {
+        try { config = JSON.parse(saved); } catch(e) { config = getDefaultConfig(); }
+    } else {
+        config = getDefaultConfig();
+    }
+    
+    // Update UI from config
+    document.getElementById('capital').value = config.capital;
+    document.getElementById('risk').value = config.riskPerTrade;
+    document.getElementById('maxpos').value = config.maxPositions;
+    document.getElementById('strategy').value = config.activeStrategies[0];
+    document.getElementById('symbols').value = config.customSymbols.join(',');
+
+    // Check backend
+    try {
+        const res = await fetch(backendUrl + '/api/health');
+        if (res.ok) {
+            const data = await res.json();
+            isBackendConnected = true;
+            document.getElementById('backend-badge').textContent = '🟢 Backend Connected';
+            document.getElementById('backend-badge').className = 'status-badge running';
+            document.getElementById('backend-msg').innerHTML = `✅ Connected to ${data.broker} (${data.mode} mode) - Real trading ready!`;
+            document.getElementById('backend-msg').className = 'alert alert-info';
+            isRunning = data.running;
+        }
+    } catch(e) {
+        isBackendConnected = false;
+        document.getElementById('backend-badge').textContent = '🟡 Paper Mode';
+        document.getElementById('backend-badge').className = 'status-badge paper';
+        document.getElementById('backend-msg').innerHTML = '🟡 Running in PAPER mode (no backend). Safe, no real money. For real Groww trading, run backend/node server.';
+    }
+
+    // Init local engine
+    broker = new MockBroker(config);
+    riskManager = new RiskManager(config);
+    engine = new AutoTradingEngine(config, broker, riskManager);
+    
+    engine.onLog = (entry) => addLog(entry);
+    engine.onTrade = (trade) => addTrade(trade);
+    engine.onStatusUpdate = (status) => {
+        isRunning = status.running;
+        updateUI();
+    };
+
+    await broker.connect();
+    updateUI();
+    addLog({timestamp: new Date().toISOString(), level: 'INFO', message: 'Mobile auto trading ready. Configure and Start.'});
+
+    // Event listeners
+    document.getElementById('start-btn').onclick = startBot;
+    document.getElementById('stop-btn').onclick = stopBot;
+    document.getElementById('squareoff-btn').onclick = squareOffAll;
+}
+
+function updateUI() {
+    document.getElementById('bot-badge').textContent = isRunning ? '🟢 RUNNING' : '🔴 STOPPED';
+    document.getElementById('bot-badge').className = 'status-badge ' + (isRunning ? 'running' : 'stopped');
+    document.getElementById('start-btn').disabled = isRunning;
+    document.getElementById('stop-btn').disabled = !isRunning;
+    document.getElementById('mode-badge').textContent = (config.mode || 'PAPER') + ' MODE';
+}
+
+function addLog(entry) {
+    logs.unshift(entry);
+    if (logs.length > 50) logs.pop();
+    const logsEl = document.getElementById('logs');
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    div.textContent = `[${new Date(entry.timestamp).toLocaleTimeString()}] [${entry.level}] ${entry.message}`;
+    logsEl.prepend(div);
+    while (logsEl.children.length > 50) logsEl.removeChild(logsEl.lastChild);
+}
+
+function addTrade(trade) {
+    trades.unshift(trade);
+    const tradesEl = document.getElementById('trades-list');
+    if (tradesEl.querySelector('p')) tradesEl.innerHTML = '';
+    
+    const div = document.createElement('div');
+    div.className = 'position-card';
+    if (trade.type === 'ORDER_PLACED') {
+        div.innerHTML = `<strong>${trade.symbol}</strong> - ${trade.signal?.signal || 'BUY'} ${trade.quantity} @ ₹${trade.signal?.entry?.toFixed(2) || 'MKT'}<br><small>${trade.signal?.strategy || ''} | Conf ${trade.signal?.confidence || 0}% | ${new Date(trade.timestamp).toLocaleTimeString()}</small>`;
+    } else {
+        const pnlClass = trade.pnl >= 0 ? 'positive' : 'negative';
+        div.innerHTML = `<strong>${trade.symbol}</strong> - P&L <span class="${pnlClass}">₹${trade.pnl?.toFixed(2) || 0}</span><br><small>Entry ₹${trade.entry?.toFixed(2) || 0} → Exit ₹${trade.exit?.toFixed(2) || 0} | ${trade.reason || ''}</small>`;
+    }
+    tradesEl.prepend(div);
+    updateStats();
+}
+
+function updateStats() {
+    const totalPnl = trades.filter(t => t.type === 'ORDER_EXITED').reduce((s,t) => s + (t.pnl||0), 0);
+    const wins = trades.filter(t => t.type === 'ORDER_EXITED' && t.pnl > 0).length;
+    const losses = trades.filter(t => t.type === 'ORDER_EXITED' && t.pnl < 0).length;
+    const total = wins + losses;
+    const winRate = total > 0 ? (wins/total*100).toFixed(1) : 0;
+    
+    document.getElementById('stat-pnl').textContent = '₹' + totalPnl.toFixed(2);
+    document.getElementById('stat-pnl').className = 'value ' + (totalPnl >=0 ? 'positive' : 'negative');
+    document.getElementById('stat-winrate').textContent = winRate + '%';
+    document.getElementById('stat-trades').textContent = total;
+    document.getElementById('stat-positions').textContent = engine ? engine.activeOrders.size : 0;
+
+    // Positions
+    const posEl = document.getElementById('positions-list');
+    if (engine && engine.activeOrders.size > 0) {
+        posEl.innerHTML = '';
+        for (const [sym, order] of engine.activeOrders.entries()) {
+            const d = document.createElement('div');
+            d.className = 'position-card';
+            d.innerHTML = `<strong>${sym}</strong> - ${order.quantity} shares @ ₹${order.entry.toFixed(2)}<br><small>SL ₹${order.stopLoss.toFixed(2)} | Target ₹${order.target.toFixed(2)} | ${order.signal.strategy}</small><br><button class="btn btn-secondary" style="padding:6px; font-size:12px; margin-top:6px;" onclick="squareOff('${sym}')">Square Off</button>`;
+            posEl.appendChild(d);
+        }
+    } else if (trades.length === 0) {
+        // Keep empty message
+    } else {
+        posEl.innerHTML = '<p style="text-align:center; color:#6b7280; padding:20px; font-size:13px;">No open positions</p>';
+    }
+}
+
+async function startBot() {
+    if (isBackendConnected) {
+        try {
+            const res = await fetch(backendUrl + '/api/start', {method: 'POST'});
+            const data = await res.json();
+            if (data.success) {
+                isRunning = true;
+                addLog({timestamp: new Date().toISOString(), level: 'INFO', message: 'Bot started via backend (real trading)'});
+            }
+        } catch(e) {
+            addLog({timestamp: new Date().toISOString(), level: 'ERROR', message: 'Backend start failed: ' + e.message});
+        }
+    } else {
+        try {
+            await engine.start();
+            isRunning = true;
+            addLog({timestamp: new Date().toISOString(), level: 'INFO', message: 'Paper trading started on mobile'});
+        } catch(e) {
+            addLog({timestamp: new Date().toISOString(), level: 'ERROR', message: e.message});
+        }
+    }
+    updateUI();
+}
+
+async function stopBot() {
+    if (isBackendConnected) {
+        await fetch(backendUrl + '/api/stop', {method: 'POST'});
+    } else {
+        if (engine) await engine.stop();
+    }
+    isRunning = false;
+    addLog({timestamp: new Date().toISOString(), level: 'INFO', message: 'Bot stopped'});
+    updateUI();
+}
+
+async function squareOffAll() {
+    if (!confirm('Square off all positions?')) return;
+    if (isBackendConnected) {
+        await fetch(backendUrl + '/api/square-off', {method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({})});
+    } else {
+        if (engine && engine.broker) await engine.broker.squareOffAll();
+    }
+    addLog({timestamp: new Date().toISOString(), level: 'INFO', message: 'All positions squared off'});
+    updateStats();
+}
+
+async function squareOff(sym) {
+    if (!confirm(`Square off ${sym}?`)) return;
+    if (engine && engine.activeOrders.has(sym)) {
+        const info = engine.activeOrders.get(sym);
+        const ltp = await engine.broker.getLTP(sym);
+        await engine.exitPosition(sym, ltp, 'Manual square off from mobile');
+        addLog({timestamp: new Date().toISOString(), level: 'INFO', message: `${sym} squared off`});
+    }
+}
+
+function saveConfig() {
+    const capital = parseFloat(document.getElementById('capital').value) || 100000;
+    const risk = parseFloat(document.getElementById('risk').value) || 1;
+    const maxpos = parseInt(document.getElementById('maxpos').value) || 3;
+    const strategy = document.getElementById('strategy').value || 'COMBINED';
+    const symbols = document.getElementById('symbols').value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    
+    config = {...getDefaultConfig(), capital, riskPerTrade: risk, maxPositions: maxpos, activeStrategies: [strategy], customSymbols: symbols};
+    localStorage.setItem('autoTradingConfig', JSON.stringify(config));
+    
+    if (engine) {
+        engine.config = config;
+        riskManager.config = config;
+    }
+    
+    addLog({timestamp: new Date().toISOString(), level: 'INFO', message: `Config saved: ₹${capital}, ${risk}% risk, ${strategy}, ${symbols.length} stocks`});
+    
+    // Show toast
+    const toast = document.createElement('div');
+    toast.textContent = '✅ Config saved!';
+    toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#10b981;color:white;padding:12px 24px;border-radius:20px;font-weight:700;z-index:9999;';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
+
+function saveDhan() {
+    const id = document.getElementById('dhan-id').value;
+    const token = document.getElementById('dhan-token').value;
+    if (!id || !token) { alert('Enter both Client ID and Token'); return; }
+    localStorage.setItem('dhan_client_id', id);
+    localStorage.setItem('dhan_access_token', token);
+    localStorage.setItem('broker', 'DHAN');
+    addLog({timestamp: new Date().toISOString(), level: 'INFO', message: 'Dhan credentials saved. Setup backend/node with same credentials for real trading.'});
+    alert('Dhan saved! For real trading, setup backend/node/.env with same ID and token, then npm start');
+}
+
+function saveGroww() {
+    const token = document.getElementById('groww-token').value;
+    if (!token) { alert('Enter token'); return; }
+    localStorage.setItem('groww_token', token);
+    localStorage.setItem('broker', 'GROWW');
+    addLog({timestamp: new Date().toISOString(), level: 'INFO', message: 'Groww token saved. Backend needed for real trading.'});
+    alert('Groww token saved! For real trading, set GROWW_TOKEN in backend/node/.env and run backend');
+}
+
+function showGrowwGuide() {
+    document.getElementById('groww-guide').classList.toggle('hidden');
+}
+
+function scrollToTop() {
+    window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', init);
+setInterval(updateStats, 2000);
+</script>
+
+</body>
+</html>
