@@ -91,6 +91,7 @@ body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: v
 .alert-error { background: var(--red-soft); color: #991b1b; border: 1px solid var(--red-border); }
 .alert-warn { background: var(--amber-soft); color: #92400e; border: 1px solid var(--amber-border); }
 .alert-info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; padding: 1px 5px; border-radius: 4px; background: rgba(127,127,127,.14); }
 
 /* ===== TABLES ===== */
 .table-wrap { overflow-x: auto; }
@@ -231,6 +232,13 @@ tr:hover td { background: #fafbff; }
                             <label for="dh-access-token">Dhan Access Token</label>
                             <input type="password" id="dh-access-token" placeholder="••••••••••••" autocomplete="off">
                             <small>JWT token, expires daily. Stored only in this browser (localStorage) and sent only to api.dhan.co.</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1; min-width: 220px;">
+                            <label for="dh-proxy-url">API proxy <span style="font-weight:400; opacity:.65;">(optional)</span></label>
+                            <input type="text" id="dh-proxy-url" placeholder="https://your-worker.workers.dev — leave blank to call api.dhan.co directly" autocomplete="off" spellcheck="false">
+                            <small>Browsers block direct calls to api.dhan.co from a static page (CORS). Deploy the included Cloudflare Worker in <code>proxy/</code> and paste its URL here to trade live. Only use a proxy <strong>you</strong> control — it sees your access token.</small>
                         </div>
                     </div>
                     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
@@ -445,8 +453,8 @@ tr:hover td { background: #fafbff; }
     <div class="disclaimer">
         <strong>⚠️ Risk &amp; safety notes.</strong>
         This dashboard is for educational purposes and is <strong>not investment advice</strong>. Live trading of NSE equities and derivatives involves substantial risk of loss — you can lose your entire capital.
-        Your Dhan Client ID and Access Token are stored <strong>only in this browser's localStorage</strong> and are sent <strong>only directly to api.dhan.co</strong> — they never touch any other server.
-        Some browsers may block direct calls to the Dhan API (CORS); in that case this page keeps working in <strong>paper mode</strong>.
+        Your Dhan Client ID and Access Token are stored <strong>only in this browser's localStorage</strong> and are sent <strong>only to api.dhan.co</strong> — or, if you fill in the optional <strong>API proxy</strong> field, to the proxy URL you entered, which forwards them to Dhan. Never enter a proxy you do not control yourself.
+        Some browsers block direct calls to the Dhan API (CORS); in that case this page keeps working in <strong>paper mode</strong>. Deploy the Worker in <code>proxy/</code> (see <code>proxy/README.md</code>) and paste its URL into the API proxy field to trade live.
         Public price feeds (Stooq / Yahoo) are delayed and unofficial. Always verify prices on your broker's terminal before trading.
     </div>
     <div>
@@ -501,7 +509,7 @@ tr:hover td { background: #fafbff; }
     };
 
     var DEFAULTS = {
-        clientId: '', accessToken: '',
+        clientId: '', accessToken: '', proxyUrl: '',
         mode: 'PAPER', scanMs: 30000,
         strategies: ['EMA_CROSSOVER', 'RSI_REVERSAL'],
         capital: 100000, riskPerTrade: 1, maxPositions: 3, minRR: 2,
@@ -579,6 +587,7 @@ tr:hover td { background: #fafbff; }
         var c = cfg();
         c.clientId = $('dh-client-id').value.trim();
         c.accessToken = $('dh-access-token').value.trim();
+        c.proxyUrl = $('dh-proxy-url').value.trim().replace(/\/+$/, '');
         c.mode = $('at-mode').value;
         c.scanMs = Number($('at-scan').value) || 30000;
         c.strategies = Array.prototype.slice.call(document.querySelectorAll('.at-strategy:checked')).map(function (el) { return el.value; });
@@ -595,6 +604,7 @@ tr:hover td { background: #fafbff; }
         var c = cfg();
         $('dh-client-id').value = c.clientId || '';
         $('dh-access-token').value = c.accessToken || '';
+        $('dh-proxy-url').value = c.proxyUrl || '';
         $('at-mode').value = c.mode === 'LIVE' ? 'LIVE' : 'PAPER';
         $('at-scan').value = String(c.scanMs || 30000);
         document.querySelectorAll('.at-strategy').forEach(function (el) { el.checked = (c.strategies || []).indexOf(el.value) !== -1; });
@@ -665,28 +675,40 @@ tr:hover td { background: #fafbff; }
         }
         var clientId = $('dh-client-id').value.trim();
         var accessToken = $('dh-access-token').value.trim();
+        var proxyUrl = $('dh-proxy-url').value.trim().replace(/\/+$/, '');
         if (!clientId || !accessToken) {
             showAlert('alert-warn', '⚠️ Enter both your Dhan Client ID and Access Token to connect. Get them from dhan.co → Profile → DhanHQ API.');
+            return;
+        }
+        if (proxyUrl && !/^https?:\/\//i.test(proxyUrl)) {
+            showAlert('alert-warn', '⚠️ The API proxy must be a full URL starting with https:// — for example https://dhan-cors-proxy.your-subdomain.workers.dev. Clear the field to call api.dhan.co directly.');
             return;
         }
         var btn = $('btn-connect');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner"></span> Connecting…';
         try {
-            var b = new DhanBroker({ clientId: clientId, accessToken: accessToken });
+            var b = new DhanBroker({ clientId: clientId, accessToken: accessToken, proxyUrl: proxyUrl });
             var res = await b.connect(); // calls GET /funds
             state.broker = b;
             state.brokerKind = 'live';
             persistFromForm();
             setConnBadge('live');
             showAlert('alert-warn', '');
-            addLog({ timestamp: Date.now(), level: 'info', message: '🔌 Connected to Dhan (client ' + esc(clientId).slice(0, 12) + '…)' });
+            addLog({ timestamp: Date.now(), level: 'info', message: '🔌 Connected to Dhan (client ' + esc(clientId).slice(0, 12) + '…) ' + (proxyUrl ? 'via proxy ' + proxyUrl : 'direct to api.dhan.co') });
             toast('Connected to Dhan — live account mode', 'success');
             refreshAccount();
         } catch (e) {
             var msg = String(e && e.message || e);
             if (/failed to fetch|networkerror|load failed/i.test(msg)) {
-                showAlert('alert-error', '🚫 Your browser blocked the call to api.dhan.co (CORS/network). The page stays in <b>paper mode</b>. To trade live, run the project with a small proxy or use the Dhan app itself. Paper mode keeps full functionality with simulated fills.');
+                // showAlert() assigns to textContent, so this string must stay
+                // plain text — it previously contained <b> tags that rendered
+                // literally inside the alert box.
+                var blockedTarget = proxyUrl ? 'your CORS proxy' : 'api.dhan.co';
+                var remedy = proxyUrl
+                    ? ' Check that the proxy URL is reachable, that the Worker is deployed, and that this site is listed in its ALLOWED_ORIGINS (see proxy/README.md).'
+                    : ' Browsers block direct calls to api.dhan.co from a static page. Deploy the Worker in proxy/ and paste its URL into the API proxy field above — or trade from the Dhan app itself.';
+                showAlert('alert-error', '🚫 Your browser blocked the call to ' + blockedTarget + ' (CORS/network).' + remedy + ' The page stays in paper mode, which keeps full functionality with simulated fills.');
             } else {
                 showAlert('alert-error', '❌ Dhan connection failed: ' + esc(msg));
             }
