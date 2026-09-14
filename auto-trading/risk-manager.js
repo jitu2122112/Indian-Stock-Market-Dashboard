@@ -1,12 +1,12 @@
 // Risk Manager - Protects capital, calculates position sizing
 
 // For Node.js compatibility
-let AutoTradingConfig;
+let ConfigDefaults; // renamed: avoid top-level clash with config.js (const AutoTradingConfig)
 if (typeof module !== 'undefined' && module.exports) {
     try {
-        AutoTradingConfig = require('./config.js');
+        ConfigDefaults = require('./config.js');
     } catch (e) {
-        AutoTradingConfig = {};
+        ConfigDefaults = {};
     }
 }
 

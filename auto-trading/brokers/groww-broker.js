@@ -7,18 +7,18 @@
 // 1. PLAYWRIGHT method: Automates Groww website UI (more stable for orders)
 // 2. API method: Uses intercepted internal API (faster but token expires)
 
-let BrokerInterface;
+let GrowwBrokerBase;
 if (typeof module !== 'undefined' && module.exports) {
     try {
-        BrokerInterface = require('../broker-interface.js');
+        GrowwBrokerBase = require('../broker-interface.js');
     } catch (e) {
-        BrokerInterface = global.BrokerInterface || class {};
+        GrowwBrokerBase = global.BrokerInterface || class {};
     }
 } else {
-    BrokerInterface = window.BrokerInterface;
+    GrowwBrokerBase = window.BrokerInterface;
 }
 
-class GrowwBroker extends BrokerInterface {
+class GrowwBroker extends GrowwBrokerBase {
     constructor(config) {
         super(config);
         this.name = 'GROWW';

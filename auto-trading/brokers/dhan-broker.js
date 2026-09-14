@@ -2,18 +2,21 @@
 // Docs: https://dhanhq.co/docs/v2/
 // Free, stable, SEBI compliant
 
-let BrokerInterface;
+// NOTE: declared as DhanBrokerBase (not BrokerInterface) so this file can be
+// loaded together with other broker files in the same page — duplicate
+// top-level `let BrokerInterface` declarations would throw a SyntaxError.
+let DhanBrokerBase;
 if (typeof module !== 'undefined' && module.exports) {
     try {
-        BrokerInterface = require('../broker-interface.js');
+        DhanBrokerBase = require('../broker-interface.js');
     } catch (e) {
-        BrokerInterface = global.BrokerInterface || class {};
+        DhanBrokerBase = global.BrokerInterface || class {};
     }
 } else {
-    BrokerInterface = window.BrokerInterface;
+    DhanBrokerBase = window.BrokerInterface;
 }
 
-class DhanBroker extends BrokerInterface {
+class DhanBroker extends DhanBrokerBase {
     constructor(config) {
         super(config);
         this.name = 'DHAN';
