@@ -7,6 +7,7 @@
     <meta name="description" content="Static Indian stock market dashboard with public delayed prices, rule-based intraday screens, entry/exit levels, and beginner guidance">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="auto-trading/auto-trading.css">
     <!-- Chart.js (pinned version + backup CDN). The dashboard works even if
          both fail — charts show a friendly note instead of breaking the page. -->
     <script>
@@ -88,6 +89,11 @@
                 <a href="#" class="nav-link" onclick="showSection('learning')">
                     <span class="nav-icon">📚</span>
                     <span>Learning Center</span>
+                </a>
+                <a href="#" class="nav-link" onclick="showSection('auto-trading')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin: 8px 0; border-radius: 8px;">
+                    <span class="nav-icon">🤖</span>
+                    <span>Auto Trading</span>
+                    <span class="nav-badge" style="background: #f59e0b;">NEW</span>
                 </a>
                 <a href="#" class="nav-link" onclick="showSection('settings')">
                     <span class="nav-icon">⚙️</span>
@@ -1461,6 +1467,235 @@
                 </div>
             </section>
 
+            <!-- ===== AUTO TRADING SECTION ===== -->
+            <section id="auto-trading" class="section">
+                <div class="section-header">
+                    <h1>🤖 Real Auto Trading - Groww & Dhan</h1>
+                    <p>Link your Groww account, auto-analyze market, place orders & auto-exit as per research</p>
+                </div>
+
+                <div class="auto-trading-container">
+                    <!-- Backend Status -->
+                    <div id="backend-status" class="backend-status local">
+                        🟡 Checking backend connection...
+                    </div>
+
+                    <!-- Status & Controls -->
+                    <div class="auto-config-section">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                            <div>
+                                <h3>Bot Status: <span id="auto-status" class="auto-status stopped">🔴 STOPPED</span></h3>
+                                <p style="margin: 5px 0; font-size: 14px; color: #6b7280;">Mode: <span id="auto-mode-display">PAPER (No real money)</span> | Broker: <span id="auto-broker-display">MOCK</span></p>
+                            </div>
+                            <div class="auto-controls">
+                                <button id="auto-start-btn" class="btn btn-primary">
+                                    <span>▶️ Start Bot</span>
+                                </button>
+                                <button id="auto-stop-btn" class="btn btn-danger" disabled>
+                                    <span>⏹️ Stop Bot</span>
+                                </button>
+                                <button id="square-off-all" class="btn btn-secondary">
+                                    <span>💰 Square Off All</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Stats -->
+                        <div class="auto-stats-grid">
+                            <div class="auto-stat-card">
+                                <div class="stat-label">Total P&L</div>
+                                <div class="stat-value" id="auto-total-pnl">₹0.00</div>
+                            </div>
+                            <div class="auto-stat-card">
+                                <div class="stat-label">Win Rate</div>
+                                <div class="stat-value" id="auto-win-rate">0%</div>
+                            </div>
+                            <div class="auto-stat-card">
+                                <div class="stat-label">Total Trades</div>
+                                <div class="stat-value" id="auto-trades-count">0</div>
+                            </div>
+                            <div class="auto-stat-card">
+                                <div class="stat-label">Open Positions</div>
+                                <div class="stat-value" id="auto-open-positions">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Broker Connect -->
+                    <div class="broker-connect-section">
+                        <h3>🔗 Step 1: Link Your Broker Account (For REAL Trading)</h3>
+                        <p>For real auto trading with your Groww account, you need to link it. Choose your broker:</p>
+                        <div class="broker-cards">
+                            <div class="broker-card groww">
+                                <h4>📈 Groww Account</h4>
+                                <p><strong>Your existing Groww account</strong> - Uses browser automation. Works but needs daily OTP login. Good for testing with Groww.</p>
+                                <p>✅ Uses your existing Groww balance<br>⚠️ Needs manual OTP daily<br>⚠️ Can break if Groww UI changes</p>
+                                <button id="connect-groww-btn" class="btn btn-primary" style="width: 100%;">
+                                    <span>🔗 Link Groww Account</span>
+                                </button>
+                            </div>
+                            <div class="broker-card dhan">
+                                <h4>💚 DhanHQ (Recommended)</h4>
+                                <p><strong>Free official API</strong> - Most stable for auto trading. Same stocks as Groww. SEBI compliant.</p>
+                                <p>✅ Free API, no monthly fee<br>✅ Stable, official support<br>✅ Token valid for long time<br>✅ Best for real auto trading</p>
+                                <button id="connect-dhan-btn" class="btn btn-primary" style="width: 100%; background: #10b981;">
+                                    <span>🔗 Link Dhan Account (Free)</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="margin-top: 16px; background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; font-size: 13px;">
+                            <strong>💡 How it works:</strong> Bot scans market every 30s → Runs 5 strategies (RSI, EMA, Breakout, Supertrend, VWAP) → If BUY signal with 70%+ confidence → Checks risk (max 1% loss per trade) → Places order on your linked account → Monitors LTP → Auto-exits at Target or Stop Loss or 3:15 PM
+                        </div>
+                    </div>
+
+                    <!-- Configuration -->
+                    <div class="auto-config-section">
+                        <h3>⚙️ Step 2: Configure Trading Bot</h3>
+                        <div class="auto-config-grid">
+                            <div class="form-group">
+                                <label>Capital (₹)</label>
+                                <input type="number" id="auto-capital" value="100000" min="5000" step="1000">
+                                <small style="color: #6b7280;">Total capital for position sizing</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Risk Per Trade (%)</label>
+                                <input type="number" id="auto-risk" value="1" min="0.5" max="5" step="0.5">
+                                <small style="color: #6b7280;">Max loss per trade (1% = ₹1000 on ₹1L)</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Max Positions</label>
+                                <input type="number" id="auto-max-positions" value="3" min="1" max="10">
+                                <small style="color: #6b7280;">Max concurrent trades</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Strategy</label>
+                                <select id="auto-strategy">
+                                    <option value="COMBINED" selected>COMBINED (All strategies vote - Best)</option>
+                                    <option value="RSI_REVERSAL">RSI Reversal (Buy oversold <30)</option>
+                                    <option value="EMA_CROSSOVER">EMA Crossover (9 EMA > 21 EMA)</option>
+                                    <option value="BREAKOUT">Breakout (20-day high + volume)</option>
+                                    <option value="SUPERTREND">Supertrend (Trend following)</option>
+                                    <option value="VWAP_RSI">VWAP + RSI (Institutional)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label>Stocks to Trade (comma separated)</label>
+                                <input type="text" id="auto-symbols" value="RELIANCE,TCS,INFY,HDFCBANK,ICICIBANK,SBIN,BHARTIARTL,ITC,LT,MARUTI" placeholder="RELIANCE,TCS,INFY">
+                                <small style="color: #6b7280;">Bot will scan these stocks every 30 seconds</small>
+                            </div>
+                        </div>
+                        <button id="save-auto-config" class="btn btn-primary">
+                            <span>💾 Save Configuration</span>
+                        </button>
+                    </div>
+
+                    <!-- How it Works Steps -->
+                    <div class="auto-trading-steps">
+                        <h3>🚀 How Real Auto Trading Works (3 Steps)</h3>
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h4>Link Your Broker (Groww or Dhan)</h4>
+                                <p>For Groww: Run <code>npm run groww-login</code> in backend/node folder, login with OTP, session saved. For Dhan: Get free API key from dhan.co → My Profile → DhanHQ API</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h4>Configure & Start Bot</h4>
+                                <p>Set capital, risk (1%), strategy (COMBINED recommended). Click Start Bot. Bot scans NSE every 30s, analyzes with RSI, EMA, Supertrend, Breakout, VWAP.</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h4>Auto Buy & Auto Exit</h4>
+                                <p>When signal found (e.g., RELIANCE breaks ₹2525 with 78% confidence), bot calculates qty based on risk (e.g., 40 shares), places order on your Groww/Dhan account, then monitors. Auto-exits when target (₹2575) or SL (₹2500) or trailing SL or 3:15 PM time.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Open Positions -->
+                    <div class="auto-config-section">
+                        <h3>📊 Open Positions (Live)</h3>
+                        <div id="auto-positions" class="positions-grid">
+                            <div class="empty-state">No open positions. Start bot to begin trading.</div>
+                        </div>
+                    </div>
+
+                    <!-- Trades History -->
+                    <div class="auto-config-section">
+                        <h3>📜 Trades History</h3>
+                        <div id="auto-trades" class="trades-container">
+                            <div class="empty-state">No trades yet. Trades will appear here when bot places orders.</div>
+                        </div>
+                    </div>
+
+                    <!-- Live Logs -->
+                    <div class="auto-config-section">
+                        <h3>📝 Live Bot Logs</h3>
+                        <div id="auto-logs" class="logs-container">
+                            <div class="log-entry">
+                                <span class="log-time">--:--:--</span>
+                                <span class="log-level info">INFO</span>
+                                <span class="log-message">Bot ready. Configure and click Start to begin auto trading.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Backend Setup Guide -->
+                    <div class="auto-config-section" style="background: #f8fafc; border: 2px dashed #cbd5e1;">
+                        <h3>🔧 Backend Setup for REAL Groww Trading (Important!)</h3>
+                        <p>For real auto trading with your Groww account, you need to run the backend server. Frontend alone can only do paper trading.</p>
+                        
+                        <h4>Quick Setup (5 minutes):</h4>
+                        <div class="code-block" style="background: #1e293b; color: #e2e8f0;">
+                            # Step 1: Install backend<br>
+                            cd backend/node<br>
+                            npm install<br>
+                            npx playwright install chromium<br><br>
+                            # Step 2: Setup Groww (first time only)<br>
+                            npm run groww-login<br>
+                            # → Browser opens → Login to Groww with OTP → Press ENTER → Session saved<br><br>
+                            # Step 3: Configure .env file<br>
+                            cp .env.example .env<br>
+                            # Edit .env:<br>
+                            # BROKER=GROWW<br>
+                            # MODE=PAPER (test first) or LIVE (real money)<br>
+                            # GROWW_METHOD=PLAYWRIGHT<br><br>
+                            # Step 4: Start backend<br>
+                            npm start<br>
+                            # → Server at http://localhost:3001<br>
+                            # → Dashboard will auto-connect and show "Backend Connected"<br>
+                            # → Now Start Bot = Real orders on Groww!
+                        </div>
+
+                        <h4>For Dhan (Easier, Recommended):</h4>
+                        <div class="code-block" style="background: #1e293b; color: #e2e8f0;">
+                            # Dhan has free official API - no browser automation needed<br>
+                            cd backend/node<br>
+                            npm install<br>
+                            cp .env.example .env<br>
+                            # Edit .env:<br>
+                            # BROKER=DHAN<br>
+                            # DHAN_CLIENT_ID=your_client_id<br>
+                            # DHAN_ACCESS_TOKEN=your_token<br>
+                            # MODE=PAPER then LIVE<br>
+                            npm start
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <strong>⚠️ Safety First:</strong><br>
+                            1. Always test in PAPER mode for 1 week<br>
+                            2. Start LIVE with small capital (₹5k-10k)<br>
+                            3. Monitor first few trades manually<br>
+                            4. Set max daily loss (2%) to auto-stop if losing<br>
+                            5. Bot auto squares off at 3:15 PM IST
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- ===== SETTINGS SECTION ===== -->
             <section id="settings" class="section">
                 <div class="section-header">
@@ -1707,6 +1942,16 @@
 
     <script src="nse-universe.js"></script>
     <script src="live-data.js"></script>
+    <!-- Auto Trading Engine -->
+    <script src="auto-trading/config.js"></script>
+    <script src="auto-trading/broker-interface.js"></script>
+    <script src="auto-trading/brokers/mock-broker.js"></script>
+    <script src="auto-trading/brokers/dhan-broker.js"></script>
+    <script src="auto-trading/brokers/groww-broker.js"></script>
+    <script src="auto-trading/strategies.js"></script>
+    <script src="auto-trading/risk-manager.js"></script>
+    <script src="auto-trading/engine.js"></script>
+    <script src="auto-trading/auto-trading.js"></script>
     <script src="app.js"></script>
     <script>
         // FAILSAFE: the loading overlay must NEVER stick forever, even if
